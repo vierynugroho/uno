@@ -558,6 +558,23 @@ describe("Aturan Tongkrongan (casual rules)", () => {
     expect(state.currentColor).toBe("blue");
   });
 
+  it("picks a group's resulting color to actually change, not match whatever was already active", () => {
+    // discard top starts red (from baseState's default), currentColor=red.
+    const blueFive = card({ id: "blue5", color: "blue", value: 5 });
+    const redFive = card({ id: "red5", color: "red", value: 5 });
+    const filler = card({ id: "filler", color: "red", value: 1 });
+    const state = baseState({
+      hands: { p1: [blueFive, redFive, filler], p2: [], p3: [] },
+    });
+    state.allowMultiPlay = true;
+
+    // redFive is selected LAST, but since red is already the active color,
+    // the engine should prefer blueFive (the one that actually differs) as
+    // the effective card, so currentColor ends up blue, not a no-op red.
+    playCards(state, "p1", ["blue5", "red5"]);
+    expect(state.currentColor).toBe("blue");
+  });
+
   it("rejects a group of NUMBER cards with different values", () => {
     const five = card({ id: "five", color: "red", value: 5 });
     const six = card({ id: "six", color: "red", value: 6 });

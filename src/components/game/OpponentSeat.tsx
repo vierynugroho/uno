@@ -64,7 +64,7 @@ export function OpponentSeat({
         ) : (
           !!turnsAway && (
             <span
-              className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-neutral-800 text-[8px] font-bold text-white ring-1 ring-white/20"
+              className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-indigo-600 text-[8px] font-bold text-white ring-1 ring-white/30"
               aria-hidden
             >
               {turnsAway}
@@ -73,7 +73,7 @@ export function OpponentSeat({
         )}
 
         <span
-          className="absolute -bottom-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-900 px-0.5 text-[9px] font-bold text-white ring-1 ring-white/30"
+          className="absolute -bottom-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-900 px-0.5 text-[9px] font-bold text-emerald-300 ring-1 ring-white/30"
           aria-hidden
         >
           {cardCount}

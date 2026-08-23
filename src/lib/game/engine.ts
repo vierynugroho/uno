@@ -150,7 +150,16 @@ export function playCards(
   // away.
   const isLastPlay = hand.length === selected.length;
 
-  const anchor = selected[selected.length - 1];
+  // When a group mixes colors (e.g. a red 5 thrown together with a blue 5),
+  // the card that ends up "on top" — and so sets the new required color —
+  // should actually change something: prefer the last-selected card whose
+  // color differs from the color that was already active, rather than one
+  // that happens to match it (which would look like nothing changed even
+  // though a pile of cards was just dumped).
+  const previousColor = state.currentColor;
+  const anchor = isWild
+    ? selected[selected.length - 1]
+    : [...selected].reverse().find((c) => c.color !== previousColor) ?? selected[selected.length - 1];
   const isSevenSwap = RULES.sevenZeroRule && anchor.type === "NUMBER" && anchor.value === 7 && !isLastPlay;
   if (isSevenSwap) {
     if (!targetPlayerId || targetPlayerId === playerId || !state.hands[targetPlayerId]) {
