@@ -14,12 +14,12 @@ export const COLOR_ACTION_COUNTS: Partial<Record<CardType, number>> = {
   REVERSE: 3,
   DRAW_TWO: 3,
   DRAW_FOUR: 2,
+  SKIP_EVERYONE: 2,
   DISCARD_ALL: 3,
 };
 
 /** Wild (colorless) cards and how many of each are in the deck. */
 export const WILD_COUNTS: Partial<Record<CardType, number>> = {
-  WILD_SKIP_EVERYONE: 8,
   WILD_REVERSE_DRAW_FOUR: 8,
   WILD_DRAW_SIX: 4,
   WILD_DRAW_TEN: 4,

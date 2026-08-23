@@ -52,7 +52,7 @@ export function soundsForLogMessage(message: string): SoundKey[] {
   if (message.includes("from the draw stack")) return ["hitDraw"];
   if (message.includes(" drew ")) return ["pickup"];
   if (message.includes("played WILD_COLOR_ROULETTE")) return ["showEm"];
-  if (message.includes("played WILD_SKIP_EVERYONE")) return ["skip"];
+  if (message.includes("played SKIP_EVERYONE")) return ["skip"];
   if (message.includes("played SKIP")) return ["skip"];
   if (message.includes("played REVERSE")) return ["reverse"];
   if (message.includes("played WILD_REVERSE_DRAW_FOUR")) return ["plus", "reverse"];

@@ -1,14 +1,14 @@
 "use client";
 
 import { RULES } from "@/lib/game/constants";
-import { cardImageSrc, CARD_BACK_SRC, needsNeutralTint } from "@/lib/game/cardAssets";
+import { cardImageSrc, CARD_BACK_SRC } from "@/lib/game/cardAssets";
 import { Card as CardData, CardColor } from "@/lib/game/types";
 
 function labelFor(card: CardData): string | null {
   if (card.type === "DISCARD_ALL") return "Discard All";
   if (card.type === "REVERSE") return "Reverse";
   if (card.type === "WILD_REVERSE_DRAW_FOUR") return "+4 & Reverse";
-  if (card.type === "WILD_SKIP_EVERYONE") return "Skip Everyone";
+  if (card.type === "SKIP_EVERYONE") return "Skip Everyone";
   if (card.type === "WILD_COLOR_ROULETTE") return "Color Roulette";
   if (RULES.sevenZeroRule && card.type === "NUMBER" && card.value === 7) return "Tukar";
   if (RULES.sevenZeroRule && card.type === "NUMBER" && card.value === 0) return "Roll";
@@ -50,9 +50,7 @@ export function PlayingCard({
       <img
         src={cardImageSrc(card, resolvedColor)}
         alt={label ?? card.type}
-        className={`h-full w-full flex-1 object-cover ${
-          needsNeutralTint(card, resolvedColor) ? "grayscale brightness-75" : ""
-        }`}
+        className="h-full w-full flex-1 object-cover"
       />
       {label && (
         <span className="absolute inset-x-0 bottom-0 truncate bg-black/70 px-1 py-0.5 text-center text-[9px] font-semibold leading-tight text-white">

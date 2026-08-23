@@ -246,7 +246,7 @@ function applyEffect(state: GameState, playerId: string, card: Card, targetPlaye
       break;
     }
 
-    case "WILD_SKIP_EVERYONE":
+    case "SKIP_EVERYONE":
       // turn returns to the player who played it
       break;
 

@@ -199,13 +199,13 @@ describe("WILD_REVERSE_DRAW_FOUR", () => {
   });
 });
 
-describe("WILD_SKIP_EVERYONE", () => {
+describe("SKIP_EVERYONE (colored, not wild)", () => {
   it("returns the turn to the player who played it", () => {
-    const skipAll = card({ id: "sa", color: null, type: "WILD_SKIP_EVERYONE" });
+    const skipAll = card({ id: "sa", color: "red", type: "SKIP_EVERYONE" });
     const filler = card({ id: "filler", color: "red", value: 1 });
     const state = baseState({ hands: { p1: [skipAll, filler], p2: [], p3: [] } });
 
-    playCard(state, "p1", "sa", "green");
+    playCard(state, "p1", "sa");
     expect(state.currentPlayerIndex).toBe(0);
   });
 });

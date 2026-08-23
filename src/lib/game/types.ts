@@ -12,8 +12,8 @@ export type CardType =
   | "WILD_REVERSE_DRAW_FOUR"
   | "WILD_DRAW_SIX"
   | "WILD_DRAW_TEN"
-  /** Wild: skips every other player's turn; play returns to whoever played it. */
-  | "WILD_SKIP_EVERYONE"
+  /** Colored (not wild) — skips every other player's turn; play returns to whoever played it. */
+  | "SKIP_EVERYONE"
   /** Wild: choose a color; the next player must play that color or draw
    * repeatedly (not just once) until they draw a card of that color. */
   | "WILD_COLOR_ROULETTE";
@@ -30,7 +30,6 @@ export const WILD_TYPES: CardType[] = [
   "WILD_REVERSE_DRAW_FOUR",
   "WILD_DRAW_SIX",
   "WILD_DRAW_TEN",
-  "WILD_SKIP_EVERYONE",
   "WILD_COLOR_ROULETTE",
 ];
 

@@ -9,7 +9,8 @@ export const CARD_BACK_SRC = `${BASE}/card_back.png`;
  * neutral face until played; once a color has been chosen for them (passed
  * as `resolvedColor`, e.g. the current discard-pile top), they show the
  * matching color-accented art instead so the table can see at a glance what
- * color is now required.
+ * color is now required. Every other card always has a real color already,
+ * so `resolvedColor` is simply ignored for them.
  */
 export function cardImageSrc(card: Card, resolvedColor?: CardColor | null): string {
   switch (card.type) {
@@ -24,8 +25,9 @@ export function cardImageSrc(card: Card, resolvedColor?: CardColor | null): stri
     case "DISCARD_ALL":
       return `${BASE}/discardall_${card.color}.png`;
     case "DRAW_FOUR":
-      // Colored, not wild — always has a real color, no neutral state.
       return `${BASE}/plus4_${card.color}.png`;
+    case "SKIP_EVERYONE":
+      return `${BASE}/skip_everyone_${card.color}.png`;
     case "WILD_REVERSE_DRAW_FOUR":
       return resolvedColor ? `${BASE}/plus4swap_${resolvedColor}.png` : `${BASE}/plus4swap_wild.png`;
     case "WILD_DRAW_SIX":
@@ -34,17 +36,7 @@ export function cardImageSrc(card: Card, resolvedColor?: CardColor | null): stri
       return resolvedColor ? `${BASE}/plus10_${resolvedColor}.png` : `${BASE}/plus10_wild.png`;
     case "WILD_COLOR_ROULETTE":
       return resolvedColor ? `${BASE}/showem_${resolvedColor}.png` : `${BASE}/showem_wild.png`;
-    case "WILD_SKIP_EVERYONE":
-      // No neutral/black art exists for Skip Everyone either — same
-      // grayscale-tint fallback as the plain +4 (see `needsNeutralTint`).
-      return `${BASE}/skip_everyone_${resolvedColor ?? "red"}.png`;
     default:
       return CARD_BACK_SRC;
   }
-}
-
-/** True when the resolved image is a stand-in color variant used only because
- * no neutral/black art exists for this card while its real color is unknown. */
-export function needsNeutralTint(card: Card, resolvedColor?: CardColor | null): boolean {
-  return card.type === "WILD_SKIP_EVERYONE" && !resolvedColor;
 }
