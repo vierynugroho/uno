@@ -22,13 +22,18 @@ export function OpponentSeat({
   hasCalledUno: boolean;
   onCatchUno?: () => void;
 }) {
+  // Only ever true for exactly one card and no call on record for THIS hand
+  // (a stale call from before a swap/rotate is cleared server-side, so this
+  // always reflects the hand the player is actually holding right now).
   const vulnerable = cardCount === 1 && !hasCalledUno;
 
   return (
     <div
       className={`flex flex-col items-center gap-1 rounded-xl p-2 transition ${
         isTurn ? "animate-turn-glow bg-amber-400/20 ring-2 ring-amber-400" : ""
-      } ${hit ? "animate-hit-shake bg-red-600/20" : ""} ${!player.connected ? "opacity-40" : ""}`}
+      } ${vulnerable ? "animate-catch-glow ring-2 ring-red-500" : ""} ${
+        hit ? "animate-hit-shake bg-red-600/20" : ""
+      } ${!player.connected ? "opacity-40" : ""}`}
     >
       <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-xl">
         {player.avatar}
@@ -57,9 +62,9 @@ export function OpponentSeat({
         <button
           type="button"
           onClick={onCatchUno}
-          className="mt-1 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-red-500"
+          className="mt-1 flex animate-pulse items-center gap-1 rounded-full bg-red-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-md shadow-red-600/40 hover:animate-none hover:bg-red-500"
         >
-          Tangkap UNO!
+          🎯 Tangkap UNO!
         </button>
       )}
     </div>

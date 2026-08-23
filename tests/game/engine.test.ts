@@ -157,7 +157,7 @@ describe("draw stacking (No Mercy)", () => {
     expect(state.currentPlayerIndex).toBe(2);
   });
 
-  it("still blocks a smaller/non-draw card once the stack is drawn out, as long as a draw card sits on top", () => {
+  it("allows normal color matching again once the stack is drawn out, even though the top is still a + card", () => {
     const drawFour = card({ id: "d4", color: "red", type: "DRAW_FOUR" });
     const sameColorDrawTwo = card({ id: "d2", color: "red", type: "DRAW_TWO" });
     const state = baseState({
@@ -167,15 +167,15 @@ describe("draw stacking (No Mercy)", () => {
     });
 
     playCard(state, "p1", "d4"); // pendingDraw = 4, turn -> p2
-    draw(state, "p2"); // resolves the stack: pendingDraw back to 0, turn -> p1, but top is still the DRAW_FOUR
+    draw(state, "p2"); // resolves the stack: pendingDraw back to 0, turn -> p1
     expect(state.pendingDraw).toBe(0);
 
-    // a same-color +2 must still not be allowed to land on the +4 just
-    // because the stack "finished"; the top is still a + card.
-    expect(() => playCard(state, "p1", "d2")).toThrow(GameError);
+    // the "only + can top +" restriction only applies while a stack is
+    // actively pending — once it's resolved, normal color matching is back.
+    expect(() => playCard(state, "p1", "d2")).not.toThrow();
   });
 
-  it("never lets a non-draw wild (e.g. Color Roulette) land on a draw-type top, active or resolved", () => {
+  it("never lets a non-draw wild (e.g. Color Roulette) land on an actively pending draw-type top", () => {
     const drawFour = card({ id: "d4", color: "red", type: "DRAW_FOUR" });
     const roulette = card({ id: "wcr", color: null, type: "WILD_COLOR_ROULETTE" });
     const filler = card({ id: "filler", color: "red", value: 1 });
@@ -447,6 +447,37 @@ describe("7-0 rule", () => {
     playCard(state, "p1", "seven", undefined, "p2");
     expect(state.hands.p1).toEqual(p2Hand);
     expect(state.hands.p2).toEqual([filler]);
+  });
+
+  it("clears any stale UNO call for both players after a 7-swap, since their hands changed", () => {
+    const seven = card({ id: "seven", color: "red", type: "NUMBER", value: 7 });
+    const filler = card({ id: "filler", color: "red", value: 1 });
+    const p2Hand = [card({ id: "p2a" }), card({ id: "p2b" })];
+    const state = baseState({
+      hands: { p1: [seven, filler], p2: p2Hand, p3: [card({ id: "p3a" })] },
+    });
+    // p1 had (incorrectly, from an earlier point) called UNO before the swap.
+    state.unoCalled.p1 = true;
+    state.unoCalled.p2 = true;
+
+    playCard(state, "p1", "seven", undefined, "p2");
+    expect(state.unoCalled.p1).toBe(false);
+    expect(state.unoCalled.p2).toBe(false);
+  });
+
+  it("clears every player's UNO call after a 0-rotate, since every hand changed", () => {
+    const zero = card({ id: "zero", color: "red", type: "NUMBER", value: 0 });
+    const filler = card({ id: "filler", color: "red", value: 1 });
+    const state = baseState({
+      hands: { p1: [zero, filler], p2: [card({ id: "p2a" })], p3: [card({ id: "p3a" })] },
+    });
+    state.unoCalled.p2 = true;
+    state.unoCalled.p3 = true;
+
+    playCard(state, "p1", "zero");
+    expect(state.unoCalled.p1).toBe(false);
+    expect(state.unoCalled.p2).toBe(false);
+    expect(state.unoCalled.p3).toBe(false);
   });
 
   it("requires a target when playing a 7 that is not your last card", () => {

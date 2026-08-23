@@ -238,6 +238,16 @@ function rotateHands(state: GameState) {
   state.hands = newHands;
 }
 
+/**
+ * A prior UNO call only ever protects the hand it was called for — once a
+ * 7-swap or 0-rotate hands someone a completely different hand, that call
+ * no longer means anything, so a catch must always reflect the hand
+ * they're actually holding right now.
+ */
+function clearUnoCalled(state: GameState, ...playerIds: string[]) {
+  for (const id of playerIds) state.unoCalled[id] = false;
+}
+
 function flipDirectionAndAdvance(state: GameState) {
   state.direction = state.direction === 1 ? -1 : 1;
   if (state.order.length === 2 && RULES.reverseActsAsSkipFor2Players) {
@@ -256,9 +266,11 @@ function applyEffect(state: GameState, playerId: string, card: Card, targetPlaye
         const tmp = state.hands[playerId];
         state.hands[playerId] = state.hands[targetPlayerId!];
         state.hands[targetPlayerId!] = tmp;
+        clearUnoCalled(state, playerId, targetPlayerId!);
         log(state, `${playerId} swapped hands with ${targetPlayerId}`);
       } else if (RULES.sevenZeroRule && card.value === 0) {
         rotateHands(state);
+        clearUnoCalled(state, ...state.order);
         log(state, "everyone passed their hand along");
       }
       advance(state);
@@ -370,9 +382,11 @@ function applyGroupEffect(
       const tmp = state.hands[playerId];
       state.hands[playerId] = state.hands[targetPlayerId!];
       state.hands[targetPlayerId!] = tmp;
+      clearUnoCalled(state, playerId, targetPlayerId!);
       log(state, `${playerId} swapped hands with ${targetPlayerId}`);
     } else if (RULES.sevenZeroRule && anchor.value === 0) {
       for (let i = 0; i < cards.length; i++) rotateHands(state);
+      clearUnoCalled(state, ...state.order);
       log(state, `everyone passed their hand along ${cards.length}x`);
     }
     advance(state);

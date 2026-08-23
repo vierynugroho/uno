@@ -47,9 +47,11 @@ export function isPlayableInView(card: Card, view: GameStateView): boolean {
     return card.type === "WILD_COLOR_ROULETTE";
   }
   if (!view.discardTop) return true;
-  if (isDrawType(view.discardTop.type)) {
-    // Mirrors isPlayable in rules.ts: a draw-type top (active stack or
-    // already resolved) can only ever be answered by another draw card.
+  if (view.pendingDraw > 0) {
+    // Mirrors isPlayable in rules.ts: while a draw stack is actively
+    // pending, only another (equal-or-bigger) draw card may respond. Once
+    // resolved, normal matching applies again even though the top is still
+    // that same draw card.
     if (!isDrawType(card.type)) return false;
     return drawAmountFor(card.type) >= drawAmountFor(view.discardTop.type);
   }

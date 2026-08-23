@@ -37,14 +37,15 @@ export function isPlayable(card: Card, state: GameState): boolean {
 
   const top = topOfDiscard(state);
 
-  if (isDrawType(top.type) && RULES.universalDrawStacking) {
-    // No Mercy: whenever a draw-type card sits on top of the pile — whether
-    // a draw-stack is still actively being resolved (pendingDraw > 0) or
-    // has already been drawn out — only another draw card may respond, and
-    // only one that draws at least as many cards as the one on top (a +2
-    // needs +2 or higher, a +4 needs +4 or higher). Wild and colored draw
-    // cards freely mix; nothing that isn't a draw card can ever land on it,
-    // not even another wild like Color Roulette.
+  if (state.pendingDraw > 0 && RULES.universalDrawStacking) {
+    // No Mercy: while a draw stack is actively pending, only another draw
+    // card may respond, and only one that draws at least as many cards as
+    // the one on top (a +2 needs +2 or higher, a +4 needs +4 or higher).
+    // Wild and colored draw cards freely mix; nothing that isn't a draw
+    // card can ever land on it, not even another wild like Color Roulette.
+    // Once someone draws to resolve the stack, this restriction lifts —
+    // even though the top card is still that same draw card, normal
+    // matching (color/type/number) applies again from then on.
     if (!isDrawType(card.type)) return false;
     return drawAmountFor(card.type) >= drawAmountFor(top.type);
   }

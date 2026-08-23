@@ -78,6 +78,19 @@ body {
   animation: turn-glow 1.6s ease-out infinite;
 }
 
+@keyframes catch-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+}
+.animate-catch-glow {
+  animation: catch-glow 1.1s ease-out infinite;
+}
+
 @keyframes hit-shake {
   0%,
   100% {

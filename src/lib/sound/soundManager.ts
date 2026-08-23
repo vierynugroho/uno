@@ -17,9 +17,9 @@ const FILES = {
 export type SoundKey = keyof typeof FILES;
 
 const BACKSOUND_SRC = "/sounds/backsound.mp3";
-const BACKSOUND_VOLUME_DEFAULT = 0.12;
-const BACKSOUND_VOLUME_IN_GAME = 0.03;
-const SFX_VOLUME = 0.6;
+const BACKSOUND_VOLUME_DEFAULT = 0.1;
+const BACKSOUND_VOLUME_IN_GAME = 0.01;
+const SFX_VOLUME = 0.7;
 
 const cache = new Map<SoundKey, HTMLAudioElement>();
 
