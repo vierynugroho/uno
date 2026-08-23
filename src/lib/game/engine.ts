@@ -111,8 +111,9 @@ export function playCard(
  * Plays one or more cards from `playerId`'s hand in a single turn. A single
  * card follows the normal per-type rules. More than one card is only legal
  * under "Aturan Tongkrongan" (state.allowMultiPlay) and only when they form
- * a legal group per `canPlayGroup` — same NUMBER value, all REVERSE, or
- * same draw amount and same wild/colored-ness.
+ * a legal group per `canPlayGroup` — same NUMBER value, all the same type
+ * among Skip/Reverse/Skip-Everyone, or same draw amount and same
+ * wild/colored-ness.
  */
 export function playCards(
   state: GameState,
@@ -334,9 +335,9 @@ function applyNetDirectionFlip(state: GameState, flipCount: number) {
 
 /**
  * Effect for a legal multi-card throw (Aturan Tongkrongan) — only ever
- * called for a same-value NUMBER group, an all-REVERSE group, or a
- * same-amount/same-wildness draw-type group (see `canPlayGroup`), so no
- * other card type can reach here.
+ * called for a same-value NUMBER group, an all-same-type Skip/Reverse/
+ * Skip-Everyone group, or a same-amount/same-wildness draw-type group (see
+ * `canPlayGroup`), so no other card type can reach here.
  */
 function applyGroupEffect(
   state: GameState,
@@ -348,6 +349,19 @@ function applyGroupEffect(
 
   if (anchor.type === "REVERSE") {
     applyNetDirectionFlip(state, cards.length);
+    return;
+  }
+
+  if (anchor.type === "SKIP") {
+    // Each Skip in the group skips one more player: one Skip lands on the
+    // 2nd-next player (advance 2), two Skips land on the 3rd-next, etc.
+    advance(state, cards.length + 1);
+    return;
+  }
+
+  if (anchor.type === "SKIP_EVERYONE") {
+    // Already skips every other player with a single copy — extra copies in
+    // the same throw don't compound, turn still just returns to the player.
     return;
   }
 

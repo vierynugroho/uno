@@ -3,15 +3,18 @@
 import { useState } from "react";
 import { PlayingCard } from "./Card";
 import { RULES } from "@/lib/game/constants";
-import { Card, CardColor, GameStateView, Player } from "@/lib/game/types";
+import { Card, CardColor, CardType, GameStateView, Player } from "@/lib/game/types";
 import { canPlayGroupInView, isPlayableInView } from "@/lib/game/view";
 import { drawAmountFor, isDrawType } from "@/lib/game/rules";
 import { ColorPickerModal } from "./ColorPickerModal";
 import { TargetPlayerModal } from "./TargetPlayerModal";
 
-/** Only NUMBER, REVERSE, and draw-type cards can ever be thrown together as a group. */
+/** Colored action cards with no value/amount — group by type alone, any color. */
+const SAME_TYPE_GROUPABLE: CardType[] = ["SKIP", "REVERSE", "SKIP_EVERYONE"];
+
+/** Only NUMBER, Skip/Reverse/Skip-Everyone, and draw-type cards can ever be thrown together as a group. */
 function isGroupable(card: Card): boolean {
-  return card.type === "NUMBER" || card.type === "REVERSE" || isDrawType(card.type);
+  return card.type === "NUMBER" || SAME_TYPE_GROUPABLE.includes(card.type) || isDrawType(card.type);
 }
 
 /** Whether some other card in hand could join `card` in a group throw. */
@@ -19,8 +22,8 @@ function hasGroupPartner(card: Card, hand: Card[]): boolean {
   if (card.type === "NUMBER") {
     return hand.some((c) => c.id !== card.id && c.type === "NUMBER" && c.value === card.value);
   }
-  if (card.type === "REVERSE") {
-    return hand.some((c) => c.id !== card.id && c.type === "REVERSE");
+  if (SAME_TYPE_GROUPABLE.includes(card.type)) {
+    return hand.some((c) => c.id !== card.id && c.type === card.type);
   }
   if (isDrawType(card.type)) {
     const amount = drawAmountFor(card.type);

@@ -1,8 +1,10 @@
 import { playableCardIds } from "./engine";
 import { getTopCard } from "./engine";
 import { drawAmountFor, isDrawType } from "./rules";
-import { WILD_TYPES } from "./types";
+import { CardType, WILD_TYPES } from "./types";
 import { Card, GameState, GameStateView } from "./types";
+
+const SAME_TYPE_GROUPABLE: CardType[] = ["SKIP", "REVERSE", "SKIP_EVERYONE"];
 
 export function buildGameStateView(state: GameState, forPlayerId: string): GameStateView {
   const opponentCounts: Record<string, number> = {};
@@ -44,13 +46,14 @@ export function isPlayableInView(card: Card, view: GameStateView): boolean {
   if (view.mustDrawUntilColor) {
     return card.type === "WILD_COLOR_ROULETTE";
   }
-  if (view.pendingDraw > 0) {
+  if (!view.discardTop) return true;
+  if (isDrawType(view.discardTop.type)) {
+    // Mirrors isPlayable in rules.ts: a draw-type top (active stack or
+    // already resolved) can only ever be answered by another draw card.
     if (!isDrawType(card.type)) return false;
-    if (!view.discardTop) return true;
     return drawAmountFor(card.type) >= drawAmountFor(view.discardTop.type);
   }
   if (WILD_TYPES.includes(card.type)) return true;
-  if (!view.discardTop) return true;
   if (card.color === view.currentColor) return true;
   if (card.type === view.discardTop.type && card.type !== "NUMBER") return true;
   if (
@@ -76,9 +79,9 @@ export function canPlayGroupInView(cards: Card[], view: GameStateView): boolean 
     return cards.some((c) => isPlayableInView(c, view));
   }
 
-  if (first.type === "REVERSE") {
-    const allReverse = rest.every((c) => c.type === "REVERSE");
-    if (!allReverse) return false;
+  if (SAME_TYPE_GROUPABLE.includes(first.type)) {
+    const sameType = rest.every((c) => c.type === first.type);
+    if (!sameType) return false;
     return cards.some((c) => isPlayableInView(c, view));
   }
 

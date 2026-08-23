@@ -16,6 +16,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "UNO No Mercy",
   description: "Main UNO No Mercy multiplayer bareng teman lewat room.",
+  icons: {
+    // Explicit + versioned so browsers (which cache favicons very
+    // aggressively) pick up the new icon instead of an old cached one.
+    icon: "/favicon.ico?v=2",
+    shortcut: "/favicon.ico?v=2",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

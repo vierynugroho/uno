@@ -77,3 +77,26 @@ body {
 .animate-turn-glow {
   animation: turn-glow 1.6s ease-out infinite;
 }
+
+@keyframes hit-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-6px) rotate(-2deg);
+  }
+  40% {
+    transform: translateX(5px) rotate(2deg);
+  }
+  60% {
+    transform: translateX(-4px) rotate(-1deg);
+  }
+  80% {
+    transform: translateX(3px) rotate(1deg);
+  }
+}
+.animate-hit-shake {
+  animation: hit-shake 0.5s ease-in-out;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.6);
+}

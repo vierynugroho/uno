@@ -4,12 +4,14 @@ import { useEffect } from "react";
 import { CardColor, GameStateView, RoomState } from "@/lib/game/types";
 import { isPlayableInView } from "@/lib/game/view";
 import { setBackgroundMusicInGame } from "@/lib/sound/soundManager";
+import { useGameStore } from "@/store/useGameStore";
 import { OpponentSeat } from "./OpponentSeat";
 import { DiscardPile, DrawPile } from "./Piles";
 import { Hand } from "./Hand";
 import { TurnIndicator } from "./TurnIndicator";
 import { UnoButton } from "./UnoButton";
 import { GameOverModal } from "./GameOverModal";
+import { NotificationToast } from "./NotificationToast";
 
 export function GameBoard({
   room,
@@ -34,8 +36,23 @@ export function GameBoard({
   const currentPlayer = room.players.find(
     (p) => p.id === view.order[view.currentPlayerIndex]
   );
-  const opponents = room.players.filter((p) => p.id !== selfId);
   const hasPlayable = view.hand.some((c) => isPlayableInView(c, view));
+
+  // How many turns away each player is, starting from whoever's turn it is
+  // now (0). Lets us show opponents in actual play order with a helper
+  // number, instead of an arbitrary list order.
+  const turnsAway: Record<string, number> = {};
+  const seatCount = view.order.length;
+  for (let step = 0; step < seatCount; step++) {
+    const idx = (((view.currentPlayerIndex + step * view.direction) % seatCount) + seatCount) % seatCount;
+    turnsAway[view.order[idx]] = step;
+  }
+
+  const opponents = room.players
+    .filter((p) => p.id !== selfId)
+    .sort((a, b) => (turnsAway[a.id] ?? 0) - (turnsAway[b.id] ?? 0));
+
+  const hitPlayerId = useGameStore((s) => s.notification?.hitPlayerId);
 
   useEffect(() => {
     setBackgroundMusicInGame(true);
@@ -44,20 +61,29 @@ export function GameBoard({
 
   return (
     <div className="relative flex min-h-dvh flex-col">
-      <div className="flex flex-wrap items-start justify-center gap-3 px-4 pt-4">
-        {opponents.map((p) => (
-          <OpponentSeat
-            key={p.id}
-            player={p}
-            cardCount={view.opponentCounts[p.id] ?? 0}
-            isTurn={view.order[view.currentPlayerIndex] === p.id}
-            hasCalledUno={!!view.unoCalled[p.id]}
-            onCatchUno={
-              (view.opponentCounts[p.id] ?? 0) === 1 && !view.unoCalled[p.id]
-                ? () => onCatchUno(p.id)
-                : undefined
-            }
-          />
+      <NotificationToast />
+      <div className="flex flex-wrap items-center justify-center gap-1.5 px-4 pt-4">
+        {opponents.map((p, i) => (
+          <div key={p.id} className="flex items-center gap-1.5">
+            {i > 0 && (
+              <span aria-hidden className="text-white/30">
+                {view.direction === 1 ? "→" : "←"}
+              </span>
+            )}
+            <OpponentSeat
+              player={p}
+              cardCount={view.opponentCounts[p.id] ?? 0}
+              isTurn={view.order[view.currentPlayerIndex] === p.id}
+              turnsAway={turnsAway[p.id]}
+              hit={hitPlayerId === p.id}
+              hasCalledUno={!!view.unoCalled[p.id]}
+              onCatchUno={
+                (view.opponentCounts[p.id] ?? 0) === 1 && !view.unoCalled[p.id]
+                  ? () => onCatchUno(p.id)
+                  : undefined
+              }
+            />
+          </div>
         ))}
       </div>
 
@@ -79,7 +105,11 @@ export function GameBoard({
         />
       </div>
 
-      <p className="text-center text-xs text-white/50">
+      <p
+        className={`mx-auto rounded-full px-3 py-0.5 text-center text-xs text-white/50 ${
+          hitPlayerId === selfId ? "animate-hit-shake bg-red-600/20" : ""
+        }`}
+      >
         Kartu kamu: <span className="font-semibold text-white/80">{view.hand.length}</span>
       </p>
       <Hand

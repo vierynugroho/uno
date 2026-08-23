@@ -156,6 +156,72 @@ describe("draw stacking (No Mercy)", () => {
     expect(state.pendingDraw).toBe(0);
     expect(state.currentPlayerIndex).toBe(2);
   });
+
+  it("still blocks a smaller/non-draw card once the stack is drawn out, as long as a draw card sits on top", () => {
+    const drawFour = card({ id: "d4", color: "red", type: "DRAW_FOUR" });
+    const sameColorDrawTwo = card({ id: "d2", color: "red", type: "DRAW_TWO" });
+    const state = baseState({
+      order: ["p1", "p2"],
+      hands: { p1: [drawFour, sameColorDrawTwo], p2: [] },
+      deck: Array.from({ length: 5 }, (_, i) => card({ id: "deck" + i })),
+    });
+
+    playCard(state, "p1", "d4"); // pendingDraw = 4, turn -> p2
+    draw(state, "p2"); // resolves the stack: pendingDraw back to 0, turn -> p1, but top is still the DRAW_FOUR
+    expect(state.pendingDraw).toBe(0);
+
+    // a same-color +2 must still not be allowed to land on the +4 just
+    // because the stack "finished"; the top is still a + card.
+    expect(() => playCard(state, "p1", "d2")).toThrow(GameError);
+  });
+
+  it("never lets a non-draw wild (e.g. Color Roulette) land on a draw-type top, active or resolved", () => {
+    const drawFour = card({ id: "d4", color: "red", type: "DRAW_FOUR" });
+    const roulette = card({ id: "wcr", color: null, type: "WILD_COLOR_ROULETTE" });
+    const filler = card({ id: "filler", color: "red", value: 1 });
+    const state = baseState({
+      hands: { p1: [drawFour, filler], p2: [roulette], p3: [] },
+    });
+
+    playCard(state, "p1", "d4");
+    // stack still active (pendingDraw = 4) — Color Roulette was never legal here.
+    expect(() => playCard(state, "p2", "wcr", "blue")).toThrow(GameError);
+  });
+
+  it("never lets Color Roulette be part of any multi-card group, even mixed with matching draws", () => {
+    const roulette = card({ id: "wcr", color: null, type: "WILD_COLOR_ROULETTE" });
+    const wildSix = card({ id: "w6", color: null, type: "WILD_DRAW_SIX" });
+    const filler = card({ id: "filler", color: "red", value: 1 });
+    const state = baseState({
+      hands: { p1: [roulette, wildSix, filler], p2: [], p3: [] },
+      allowMultiPlay: true,
+    });
+
+    expect(() => playCards(state, "p1", ["wcr", "w6"])).toThrow(GameError);
+    expect(() => playCards(state, "p1", ["w6", "wcr"])).toThrow(GameError);
+  });
+
+  it("lets wild and colored draw cards freely mix as long as the amount doesn't drop", () => {
+    const wildSix = card({ id: "w6", color: null, type: "WILD_DRAW_SIX" });
+    const drawFour = card({ id: "d4", color: "red", type: "DRAW_FOUR" });
+    const wildTen = card({ id: "w10", color: null, type: "WILD_DRAW_TEN" });
+    const filler = card({ id: "filler", color: "red", value: 3 });
+    const state = baseState({
+      hands: { p1: [wildSix, filler], p2: [drawFour], p3: [wildTen] },
+    });
+
+    playCard(state, "p1", "w6", "red");
+    expect(() => playCard(state, "p2", "d4")).toThrow(GameError); // 4 < 6, rejected regardless of wild/colored mixing
+
+    const p1Filler = card({ id: "p1filler", color: "red", value: 1 });
+    const p2Filler = card({ id: "p2filler", color: "red", value: 2 });
+    const wildTenState = baseState({
+      hands: { p1: [wildSix, p1Filler], p2: [wildTen, p2Filler], p3: [] },
+    });
+    playCard(wildTenState, "p1", "w6", "red");
+    expect(() => playCard(wildTenState, "p2", "w10", "blue")).not.toThrow();
+    expect(wildTenState.pendingDraw).toBe(16);
+  });
 });
 
 describe("must-play rule", () => {
@@ -548,6 +614,37 @@ describe("Aturan Tongkrongan (casual rules)", () => {
 
     playCards(state, "p1", ["rvA", "rvB", "rvC"]);
     expect(state.direction).toBe(-1);
+    expect(state.currentPlayerIndex).toBe(state.order.indexOf("p1"));
+  });
+
+  it("groups Skip cards of different colors and skips one extra player per card", () => {
+    const skipA = card({ id: "skA", color: "red", type: "SKIP" });
+    const skipB = card({ id: "skB", color: "blue", type: "SKIP" });
+    const filler = card({ id: "filler", color: "red", value: 1 });
+    const state = baseState({
+      order: ["p1", "p2", "p3", "p4"],
+      hands: { p1: [skipA, skipB, filler], p2: [], p3: [], p4: [] },
+      allowMultiPlay: true,
+    });
+
+    playCards(state, "p1", ["skA", "skB"]);
+    // one Skip alone would land on p2 (skip p... wait: a single skip lands
+    // on the 2nd-next player); two Skips together skip 2 players, landing
+    // on the 3rd-next player from p1.
+    expect(state.currentPlayerIndex).toBe(state.order.indexOf("p4"));
+  });
+
+  it("groups Skip Everyone cards without compounding — still just returns to the player", () => {
+    const seA = card({ id: "seA", color: "red", type: "SKIP_EVERYONE" });
+    const seB = card({ id: "seB", color: "blue", type: "SKIP_EVERYONE" });
+    const filler = card({ id: "filler", color: "red", value: 1 });
+    const state = baseState({
+      order: ["p1", "p2", "p3"],
+      hands: { p1: [seA, seB, filler], p2: [], p3: [] },
+      allowMultiPlay: true,
+    });
+
+    playCards(state, "p1", ["seA", "seB"]);
     expect(state.currentPlayerIndex).toBe(state.order.indexOf("p1"));
   });
 

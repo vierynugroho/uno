@@ -1,5 +1,8 @@
 import { DRAW_AMOUNTS, RULES } from "./constants";
-import { Card, DRAW_TYPES, GameState, WILD_TYPES } from "./types";
+import { Card, CardType, DRAW_TYPES, GameState, WILD_TYPES } from "./types";
+
+/** Colored action cards with no value/amount — group by type alone, any color. */
+const SAME_TYPE_GROUPABLE: CardType[] = ["SKIP", "REVERSE", "SKIP_EVERYONE"];
 
 export function topOfDiscard(state: GameState): Card {
   const top = state.discardPile[state.discardPile.length - 1];
@@ -32,19 +35,22 @@ export function isPlayable(card: Card, state: GameState): boolean {
     return card.type === "WILD_COLOR_ROULETTE";
   }
 
-  if (state.pendingDraw > 0 && RULES.universalDrawStacking) {
-    // No Mercy: while a draw stack is active, only another draw card (any
-    // color/type) may be played on top of it — and only one that draws at
-    // least as many cards as the one currently on top (a +2 needs +2 or
-    // higher, a +4 needs +4 or higher; you can never de-escalate a stack).
+  const top = topOfDiscard(state);
+
+  if (isDrawType(top.type) && RULES.universalDrawStacking) {
+    // No Mercy: whenever a draw-type card sits on top of the pile — whether
+    // a draw-stack is still actively being resolved (pendingDraw > 0) or
+    // has already been drawn out — only another draw card may respond, and
+    // only one that draws at least as many cards as the one on top (a +2
+    // needs +2 or higher, a +4 needs +4 or higher). Wild and colored draw
+    // cards freely mix; nothing that isn't a draw card can ever land on it,
+    // not even another wild like Color Roulette.
     if (!isDrawType(card.type)) return false;
-    const top = topOfDiscard(state);
     return drawAmountFor(card.type) >= drawAmountFor(top.type);
   }
 
   if (isWildType(card.type)) return true;
 
-  const top = topOfDiscard(state);
   if (card.color === state.currentColor) return true;
   if (card.type === top.type && card.type !== "NUMBER") return true;
   if (card.type === "NUMBER" && top.type === "NUMBER" && card.value === top.value) {
@@ -65,13 +71,14 @@ export function canDraw(hand: Card[], state: GameState): boolean {
 
 /**
  * "Aturan Tongkrongan": whether `cards` can be thrown together in one turn.
- * A group is legal when every card shares the same NUMBER value, is all
- * REVERSE, or is every draw-type card with the exact same draw amount AND
- * the same wild/colored-ness — stacking is staged: a +2 only groups with
- * another +2, a colored +4 only with another colored +4 (never a wild +4-
- * equivalent even though the amount matches), +6 only with +6, +10 only
- * with +10. At least one card in the group must be individually legal on
- * top of the current discard pile.
+ * A group is legal when every card shares the same NUMBER value, is all the
+ * same type among Skip/Reverse/Skip-Everyone (any color mix), or is every
+ * draw-type card with the exact same draw amount AND the same
+ * wild/colored-ness — stacking is staged: a +2 only groups with another +2,
+ * a colored +4 only with another colored +4 (never a wild +4-equivalent
+ * even though the amount matches), +6 only with +6, +10 only with +10. At
+ * least one card in the group must be individually legal on top of the
+ * current discard pile.
  */
 export function canPlayGroup(cards: Card[], state: GameState): boolean {
   if (cards.length === 0) return false;
@@ -85,9 +92,9 @@ export function canPlayGroup(cards: Card[], state: GameState): boolean {
     return cards.some((c) => isPlayable(c, state));
   }
 
-  if (first.type === "REVERSE") {
-    const allReverse = rest.every((c) => c.type === "REVERSE");
-    if (!allReverse) return false;
+  if (SAME_TYPE_GROUPABLE.includes(first.type)) {
+    const sameType = rest.every((c) => c.type === first.type);
+    if (!sameType) return false;
     return cards.some((c) => isPlayable(c, state));
   }
 

@@ -4,12 +4,17 @@ import { currentPlayerId } from "@/lib/game/engine";
 import { getGame, getRoom } from "@/lib/rooms/roomManager";
 import { emitGameState, emitRoomState } from "./broadcast";
 
-const BOT_MOVE_DELAY_MS = 1100;
+const BOT_MOVE_DELAY_MIN_MS = 1400;
+const BOT_MOVE_DELAY_MAX_MS = 2400;
+
+function botMoveDelay(): number {
+  return BOT_MOVE_DELAY_MIN_MS + Math.random() * (BOT_MOVE_DELAY_MAX_MS - BOT_MOVE_DELAY_MIN_MS);
+}
 
 /**
- * If it's currently a bot's turn, plays that turn after a short delay (so it
- * reads as a "thinking" pause instead of instant), then chains into the next
- * player's turn in case that's also a bot.
+ * If it's currently a bot's turn, plays that turn after a short "thinking"
+ * delay (randomized a bit so a chain of bot turns doesn't feel robotic),
+ * then chains into the next player's turn in case that's also a bot.
  */
 export function scheduleBotTurnIfNeeded(io: Server, code: string) {
   const room = getRoom(code);
@@ -36,5 +41,5 @@ export function scheduleBotTurnIfNeeded(io: Server, code: string) {
     }
 
     scheduleBotTurnIfNeeded(io, code);
-  }, BOT_MOVE_DELAY_MS);
+  }, botMoveDelay());
 }
