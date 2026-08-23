@@ -52,9 +52,12 @@ export function GameBoard({
   // changes as turns progress — only the direction arrows/turn badges do.
   // Sorting by turnsAway instead would make every avatar jump around the
   // row each time the turn changes, which is what we want to avoid.
-  const opponents = room.players
-    .filter((p) => p.id !== selfId)
-    .sort((a, b) => view.order.indexOf(a.id) - view.order.indexOf(b.id));
+  const bySeat = (a: { id: string }, b: { id: string }) =>
+    view.order.indexOf(a.id) - view.order.indexOf(b.id);
+
+  const opponents = room.players.filter((p) => p.id !== selfId).sort(bySeat);
+  // Includes self, so the full turn cycle is visible — not just opponents.
+  const seatedPlayers = room.players.slice().sort(bySeat);
 
   const hitPlayerId = useGameStore((s) => s.notification?.hitPlayerId);
 
@@ -67,28 +70,33 @@ export function GameBoard({
     <div className="relative flex min-h-dvh flex-col">
       <NotificationToast />
       <div className="flex flex-wrap items-center justify-center gap-1.5 px-4 pt-4">
-        {opponents.map((p, i) => (
-          <div key={p.id} className="flex items-center gap-1.5">
-            {i > 0 && (
-              <span aria-hidden className="text-white/30">
-                {view.direction === 1 ? "→" : "←"}
-              </span>
-            )}
-            <OpponentSeat
-              player={p}
-              cardCount={view.opponentCounts[p.id] ?? 0}
-              isTurn={view.order[view.currentPlayerIndex] === p.id}
-              turnsAway={turnsAway[p.id]}
-              hit={hitPlayerId === p.id}
-              hasCalledUno={!!view.unoCalled[p.id]}
-              onCatchUno={
-                (view.opponentCounts[p.id] ?? 0) === 1 && !view.unoCalled[p.id]
-                  ? () => onCatchUno(p.id)
-                  : undefined
-              }
-            />
-          </div>
-        ))}
+        {seatedPlayers.map((p, i) => {
+          const isSelf = p.id === selfId;
+          const cardCount = isSelf ? view.hand.length : view.opponentCounts[p.id] ?? 0;
+          return (
+            <div key={p.id} className="flex items-center gap-1.5">
+              {i > 0 && (
+                <span aria-hidden className="text-white/30">
+                  {view.direction === 1 ? "→" : "←"}
+                </span>
+              )}
+              <OpponentSeat
+                player={p}
+                isSelf={isSelf}
+                cardCount={cardCount}
+                isTurn={view.order[view.currentPlayerIndex] === p.id}
+                turnsAway={turnsAway[p.id]}
+                hit={hitPlayerId === p.id}
+                hasCalledUno={!!view.unoCalled[p.id]}
+                onCatchUno={
+                  !isSelf && cardCount === 1 && !view.unoCalled[p.id]
+                    ? () => onCatchUno(p.id)
+                    : undefined
+                }
+              />
+            </div>
+          );
+        })}
       </div>
 
       <TurnIndicator

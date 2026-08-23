@@ -9,6 +9,7 @@ export function OpponentSeat({
   isTurn,
   turnsAway,
   hit,
+  isSelf,
   hasCalledUno,
   onCatchUno,
 }: {
@@ -19,6 +20,8 @@ export function OpponentSeat({
   turnsAway?: number;
   /** True for a moment right after this player gets hit by a draw stack. */
   hit?: boolean;
+  /** True for the local player's own seat in the turn-order row. */
+  isSelf?: boolean;
   hasCalledUno: boolean;
   onCatchUno?: () => void;
 }) {
@@ -30,10 +33,10 @@ export function OpponentSeat({
   return (
     <div
       className={`flex flex-col items-center gap-1 rounded-xl p-2 transition ${
-        isTurn ? "animate-turn-glow bg-amber-400/20 ring-2 ring-amber-400" : ""
-      } ${vulnerable ? "animate-catch-glow ring-2 ring-red-500" : ""} ${
-        hit ? "animate-hit-shake bg-red-600/20" : ""
-      } ${!player.connected ? "opacity-40" : ""}`}
+        isSelf ? "bg-sky-400/10 ring-1 ring-sky-400/40" : ""
+      } ${isTurn ? "animate-turn-glow bg-amber-400/20 ring-2 ring-amber-400" : ""} ${
+        vulnerable ? "animate-catch-glow ring-2 ring-red-500" : ""
+      } ${hit ? "animate-hit-shake bg-red-600/20" : ""} ${!player.connected ? "opacity-40" : ""}`}
     >
       <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-xl">
         {player.avatar}
@@ -52,7 +55,7 @@ export function OpponentSeat({
         )}
       </div>
       <span className="max-w-[6rem] truncate text-xs font-medium text-white/90">
-        {player.name}
+        {isSelf ? "Kamu" : player.name}
       </span>
       <div className="flex items-center gap-1">
         <CardBack size="sm" />
