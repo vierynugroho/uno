@@ -4,9 +4,15 @@ import { useState } from "react";
 import { PlayingCard } from "./Card";
 import { RULES } from "@/lib/game/constants";
 import { Card, CardColor, GameStateView, Player } from "@/lib/game/types";
-import { isPlayableInView } from "@/lib/game/view";
+import { canPlayGroupInView, isPlayableInView } from "@/lib/game/view";
+import { isDrawType } from "@/lib/game/rules";
 import { ColorPickerModal } from "./ColorPickerModal";
 import { TargetPlayerModal } from "./TargetPlayerModal";
+
+/** Only NUMBER and draw-type cards can ever be thrown together as a group. */
+function isGroupable(card: Card): boolean {
+  return card.type === "NUMBER" || isDrawType(card.type);
+}
 
 export function Hand({
   hand,
@@ -19,31 +25,75 @@ export function Hand({
   view: GameStateView;
   isMyTurn: boolean;
   opponents: Player[];
-  onPlay: (cardId: string, chosenColor?: CardColor, targetPlayerId?: string) => void;
+  onPlay: (cardIds: string[], chosenColor?: CardColor, targetPlayerId?: string) => void;
 }) {
-  const [pendingWild, setPendingWild] = useState<Card | null>(null);
-  const [pendingSwap, setPendingSwap] = useState<Card | null>(null);
+  const [pending, setPending] = useState<Card[] | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+
+  // Derived, not stored: if the hand changed underneath a stale selection
+  // (played, or cards moved via a 7/0 swap), missing ids just drop out here.
+  const selectedCards = selected
+    .map((id) => hand.find((c) => c.id === id))
+    .filter((c): c is Card => !!c);
+
+  function playGroup(cards: Card[]) {
+    const anchor = cards[cards.length - 1];
+    const needsColor = anchor.color === null;
+    const needsTarget =
+      RULES.sevenZeroRule &&
+      anchor.type === "NUMBER" &&
+      anchor.value === 7 &&
+      hand.length > cards.length;
+
+    if (needsColor) {
+      setPending(cards);
+    } else if (needsTarget) {
+      setPending(cards);
+    } else {
+      onPlay(cards.map((c) => c.id));
+      setSelected([]);
+    }
+  }
 
   function handleClick(card: Card) {
     if (!isMyTurn || !isPlayableInView(card, view)) return;
-    if (card.color === null) {
-      setPendingWild(card);
-    } else if (RULES.sevenZeroRule && card.type === "NUMBER" && card.value === 7) {
-      setPendingSwap(card);
-    } else {
-      onPlay(card.id);
+
+    if (!view.allowMultiPlay || !isGroupable(card)) {
+      playGroup([card]);
+      return;
     }
+
+    setSelected((prev) => {
+      if (prev.includes(card.id)) return prev.filter((id) => id !== card.id);
+      const next = [...prev, card.id];
+      const nextCards = next
+        .map((id) => hand.find((c) => c.id === id))
+        .filter((c): c is Card => !!c);
+      // If adding this card breaks the group (different value/amount), start
+      // a fresh selection with just this card instead.
+      return canPlayGroupInView(nextCards, view) ? next : [card.id];
+    });
   }
+
+  const pendingWild = !!pending && pending[0].color === null;
+  const pendingNeedsTarget =
+    !!pending &&
+    !pendingWild &&
+    RULES.sevenZeroRule &&
+    pending[pending.length - 1].type === "NUMBER" &&
+    pending[pending.length - 1].value === 7;
 
   return (
     <>
       <div className="flex w-full flex-wrap items-end justify-center gap-2 px-2 py-4">
         {hand.map((card) => {
           const playable = isMyTurn && isPlayableInView(card, view);
+          const isSelected = selected.includes(card.id);
           return (
             <PlayingCard
               key={card.id}
               card={card}
+              selected={isSelected}
               disabled={!playable}
               onClick={() => handleClick(card)}
             />
@@ -54,26 +104,55 @@ export function Hand({
         )}
       </div>
 
-      {pendingWild && (
+      {view.allowMultiPlay && selectedCards.length > 0 && (
+        <div className="fixed bottom-28 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 sm:bottom-32">
+          <button
+            type="button"
+            onClick={() => setSelected([])}
+            className="rounded-full bg-white/10 px-3 py-2 text-xs font-medium text-white/70 hover:bg-white/20"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            onClick={() => playGroup(selectedCards)}
+            disabled={!canPlayGroupInView(selectedCards, view)}
+            className="rounded-full bg-amber-400 px-4 py-2 text-sm font-bold text-black shadow disabled:cursor-not-allowed disabled:opacity-40 hover:bg-amber-300"
+          >
+            Mainkan ({selectedCards.length})
+          </button>
+        </div>
+      )}
+
+      {pending && pendingWild && (
         <ColorPickerModal
           onSelect={(color) => {
-            const cardId = pendingWild.id;
-            setPendingWild(null);
-            onPlay(cardId, color);
+            const cards = pending;
+            setPending(null);
+            setSelected([]);
+            onPlay(
+              cards.map((c) => c.id),
+              color
+            );
           }}
-          onCancel={() => setPendingWild(null)}
+          onCancel={() => setPending(null)}
         />
       )}
 
-      {pendingSwap && (
+      {pending && pendingNeedsTarget && (
         <TargetPlayerModal
           opponents={opponents}
           onSelect={(targetPlayerId) => {
-            const cardId = pendingSwap.id;
-            setPendingSwap(null);
-            onPlay(cardId, undefined, targetPlayerId);
+            const cards = pending;
+            setPending(null);
+            setSelected([]);
+            onPlay(
+              cards.map((c) => c.id),
+              undefined,
+              targetPlayerId
+            );
           }}
-          onCancel={() => setPendingSwap(null)}
+          onCancel={() => setPending(null)}
         />
       )}
     </>

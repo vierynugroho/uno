@@ -8,6 +8,7 @@ import { PlayerList } from "@/components/lobby/PlayerList";
 import { RoomSettings } from "@/components/lobby/RoomSettings";
 import { GameBoard } from "@/components/game/GameBoard";
 import {
+  clearLastRoomCode,
   emitWithAck,
   getOrCreatePlayerId,
   getStoredIdentity,
@@ -16,7 +17,7 @@ import {
 } from "@/lib/socket/client/socketClient";
 import { ensureSocketWired, useGameStore } from "@/store/useGameStore";
 
-type Phase = "checking" | "needsJoin" | "ready";
+type Phase = "checking" | "needsJoin" | "notFound" | "ready";
 
 export default function RoomPage() {
   const params = useParams<{ code: string }>();
@@ -51,6 +52,8 @@ export default function RoomPage() {
       if (res.ok) {
         storeLastRoomCode(code);
         setPhase("ready");
+      } else if (res.error === "room not found") {
+        setPhase("notFound");
       } else {
         setPhase("needsJoin");
       }
@@ -91,13 +94,40 @@ export default function RoomPage() {
     if (!res.ok && res.error) setError(res.error);
   }
 
+  async function goHome() {
+    await emitWithAck("room:leave");
+    clearLastRoomCode();
+    router.push("/");
+  }
+
   if (phase === "checking") {
     return <Centered>Menghubungkan…</Centered>;
+  }
+
+  if (phase === "notFound") {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-4 px-4 py-10 text-center text-white">
+        <p className="text-5xl">🔍</p>
+        <h1 className="text-xl font-bold">Room tidak ditemukan</h1>
+        <p className="text-sm text-white/60">
+          Room dengan kode <span className="font-semibold text-amber-400">{code}</span> sudah
+          tidak ada — mungkin sudah berakhir atau kodenya salah.
+        </p>
+        <button
+          type="button"
+          onClick={goHome}
+          className="mt-4 w-full rounded-lg bg-amber-400 py-3 font-bold text-black transition hover:bg-amber-300"
+        >
+          Kembali ke Beranda
+        </button>
+      </main>
+    );
   }
 
   if (phase === "needsJoin") {
     return (
       <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center gap-6 px-4 py-10 text-white">
+        <BackButton onClick={goHome} />
         <div className="text-center">
           <p className="text-xs uppercase tracking-widest text-white/50">Gabung Room</p>
           <p className="text-3xl font-black tracking-[0.3em] text-amber-400">{code}</p>
@@ -138,6 +168,7 @@ export default function RoomPage() {
   if (room.status === "lobby") {
     return (
       <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center gap-6 px-4 py-10 text-white">
+        <BackButton onClick={goHome} />
         <InviteCode code={code} />
         <PlayerList
           players={room.players}
@@ -150,6 +181,9 @@ export default function RoomPage() {
           isHost={room.hostId === selfId}
           onStart={() => guarded(emitWithAck("room:start"))}
           onAddBot={() => guarded(emitWithAck("room:addBot"))}
+          onToggleCasualRules={(value) =>
+            guarded(emitWithAck("room:updateSettings", { settings: { casualRules: value } }))
+          }
         />
         {error && <p className="text-sm text-red-400">{error}</p>}
       </main>
@@ -164,8 +198,8 @@ export default function RoomPage() {
         room={room}
         view={game}
         selfId={selfId}
-        onPlay={(cardId, chosenColor, targetPlayerId) =>
-          guarded(emitWithAck("game:playCard", { cardId, chosenColor, targetPlayerId }))
+        onPlay={(cardIds, chosenColor, targetPlayerId) =>
+          guarded(emitWithAck("game:playCard", { cardIds, chosenColor, targetPlayerId }))
         }
         onDraw={() => guarded(emitWithAck("game:drawCard"))}
         onCallUno={() => guarded(emitWithAck("game:callUno"))}
@@ -183,4 +217,16 @@ export default function RoomPage() {
 
 function Centered({ children }: { children: React.ReactNode }) {
   return <div className="flex min-h-dvh items-center justify-center text-white/60">{children}</div>;
+}
+
+function BackButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="self-start rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white/70 hover:bg-white/20"
+    >
+      ← Kembali
+    </button>
+  );
 }

@@ -8,17 +8,39 @@ export function RoomSettings({
   isHost,
   onStart,
   onAddBot,
+  onToggleCasualRules,
 }: {
   room: RoomState;
   isHost: boolean;
   onStart: () => void;
   onAddBot: () => void;
+  onToggleCasualRules: (value: boolean) => void;
 }) {
   const canStart = room.players.length >= MIN_PLAYERS;
   const roomFull = room.players.length >= MAX_PLAYERS;
 
   return (
     <div className="w-full max-w-sm space-y-4">
+      <label
+        className={`flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 ${
+          isHost ? "cursor-pointer" : "opacity-70"
+        }`}
+      >
+        <span className="flex flex-col">
+          <span className="text-sm text-white">Aturan Tongkrongan</span>
+          <span className="text-[10px] text-white/40">
+            Boleh tumpuk angka/+ yang sama, tidak wajib main kalau punya kartu
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          checked={room.settings.casualRules}
+          disabled={!isHost}
+          onChange={(e) => onToggleCasualRules(e.target.checked)}
+          className="h-4 w-4 flex-none"
+        />
+      </label>
+
       <label className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 opacity-60">
         <span className="text-sm text-white">Mode Team</span>
         <span className="flex items-center gap-2">

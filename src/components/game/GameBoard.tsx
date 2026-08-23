@@ -23,7 +23,7 @@ export function GameBoard({
   room: RoomState;
   view: GameStateView;
   selfId: string;
-  onPlay: (cardId: string, chosenColor?: CardColor, targetPlayerId?: string) => void;
+  onPlay: (cardIds: string[], chosenColor?: CardColor, targetPlayerId?: string) => void;
   onDraw: () => void;
   onCallUno: () => void;
   onCatchUno: (targetId: string) => void;
@@ -68,7 +68,7 @@ export function GameBoard({
         <DiscardPile topCard={view.discardTop} currentColor={view.currentColor} />
         <DrawPile
           count={view.deckCount}
-          canDraw={isMyTurn && !hasPlayable}
+          canDraw={isMyTurn && (!hasPlayable || !view.mustPlayIfAble)}
           pendingDraw={view.pendingDraw}
           mustDrawUntilColor={view.mustDrawUntilColor}
           onDraw={onDraw}

@@ -7,8 +7,9 @@ export function InviteCode({ code }: { code: string }) {
 
   async function copy() {
     const url = `${window.location.origin}/room/${code}`;
+    const message = `Yuk main UNO No Mercy bareng! 🎮\nKode room: ${code}\n${url}`;
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(message);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {

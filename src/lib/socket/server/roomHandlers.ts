@@ -119,7 +119,7 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
 
   socket.on(
     "room:updateSettings",
-    (payload: { settings: { teamMode?: boolean } }, ack?: Ack) => {
+    (payload: { settings: { teamMode?: boolean; casualRules?: boolean } }, ack?: Ack) => {
       try {
         const { roomCode, playerId } = requireSession(socket);
         updateSettings(roomCode, playerId, payload.settings);

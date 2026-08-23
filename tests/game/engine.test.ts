@@ -6,6 +6,7 @@ import {
   draw,
   GameError,
   playCard,
+  playCards,
 } from "@/lib/game/engine";
 import { buildDeck, HAND_SIZE_LOSS_LIMIT } from "@/lib/game/constants";
 import { Card, GameState } from "@/lib/game/types";
@@ -24,6 +25,8 @@ function baseState(overrides: Partial<GameState> = {}): GameState {
     pendingDraw: 0,
     drawStackActive: false,
     mustDrawUntilColor: null,
+    mustPlayIfAble: true,
+    allowMultiPlay: false,
     unoCalled: Object.fromEntries(order.map((id) => [id, false])),
     log: [],
     winnerId: null,
@@ -160,6 +163,15 @@ describe("DISCARD_ALL", () => {
     playCard(state, "p1", "da");
     expect(state.hands.p1).toEqual([blue]);
     expect(state.discardPile.map((c) => c.id)).toContain("r2");
+  });
+
+  it("keeps the DISCARD_ALL card itself on top of the pile, not the dumped cards", () => {
+    const discardAll = card({ id: "da", color: "red", type: "DISCARD_ALL" });
+    const otherRed = card({ id: "r2", color: "red", type: "NUMBER", value: 3 });
+    const state = baseState({ hands: { p1: [discardAll, otherRed], p2: [], p3: [] } });
+
+    playCard(state, "p1", "da");
+    expect(state.discardPile[state.discardPile.length - 1].id).toBe("da");
   });
 });
 
@@ -397,5 +409,85 @@ describe("7-0 rule", () => {
     expect(state.hands.p2).toEqual(p1Rest);
     expect(state.hands.p3).toEqual(p2Hand);
     expect(state.hands.p1).toEqual(p3Hand);
+  });
+});
+
+describe("Aturan Tongkrongan (casual rules)", () => {
+  it("relaxes must-play: draw() is allowed even with a legal card when mustPlayIfAble is false", () => {
+    const matchColor = card({ id: "a", color: "red" });
+    const state = baseState({
+      hands: { p1: [matchColor], p2: [], p3: [] },
+      mustPlayIfAble: false,
+      deck: [card({ id: "d1" })],
+    });
+    expect(() => draw(state, "p1")).not.toThrow();
+    expect(state.hands.p1).toHaveLength(2);
+  });
+
+  it("rejects throwing multiple cards at once when allowMultiPlay is false", () => {
+    const fiveA = card({ id: "5a", color: "red", value: 5 });
+    const fiveB = card({ id: "5b", color: "blue", value: 5 });
+    const state = baseState({
+      hands: { p1: [fiveA, fiveB], p2: [], p3: [] },
+      allowMultiPlay: false,
+    });
+    expect(() => playCards(state, "p1", ["5a", "5b"])).toThrow(GameError);
+  });
+
+  it("allows dumping multiple same-value NUMBER cards at once", () => {
+    const fiveA = card({ id: "5a", color: "red", value: 5 });
+    const fiveB = card({ id: "5b", color: "blue", value: 5 });
+    const filler = card({ id: "filler", color: "red", value: 1 });
+    const state = baseState({
+      hands: { p1: [fiveA, fiveB, filler], p2: [], p3: [] },
+      allowMultiPlay: true,
+    });
+
+    playCards(state, "p1", ["5a", "5b"]);
+    expect(state.hands.p1).toEqual([filler]);
+    expect(state.currentColor).toBe("blue");
+  });
+
+  it("rejects a group of NUMBER cards with different values", () => {
+    const five = card({ id: "five", color: "red", value: 5 });
+    const six = card({ id: "six", color: "red", value: 6 });
+    const state = baseState({
+      hands: { p1: [five, six], p2: [], p3: [] },
+      allowMultiPlay: true,
+    });
+    expect(() => playCards(state, "p1", ["five", "six"])).toThrow(GameError);
+  });
+
+  it("sums draw amounts when dumping same-amount draw cards, and never mixes colored with wild", () => {
+    const drawTwoA = card({ id: "d2a", color: "red", type: "DRAW_TWO" });
+    const drawTwoB = card({ id: "d2b", color: "blue", type: "DRAW_TWO" });
+    const wildSix = card({ id: "w6", color: null, type: "WILD_DRAW_SIX" });
+    const filler = card({ id: "filler", color: "red", value: 1 });
+    const state = baseState({
+      hands: { p1: [drawTwoA, drawTwoB, wildSix, filler], p2: [], p3: [] },
+      allowMultiPlay: true,
+    });
+
+    // colored + wild never mix even conceptually similar amounts
+    expect(() => playCards(state, "p1", ["d2a", "w6"])).toThrow(GameError);
+
+    playCards(state, "p1", ["d2a", "d2b"]);
+    expect(state.pendingDraw).toBe(4);
+    expect(state.hands.p1).toEqual([wildSix, filler]);
+  });
+
+  it("wins immediately when the whole hand is thrown as a group, without swap/rotate", () => {
+    const sevenA = card({ id: "7a", color: "red", type: "NUMBER", value: 7 });
+    const sevenB = card({ id: "7b", color: "blue", type: "NUMBER", value: 7 });
+    const p2Hand = [card({ id: "p2a" })];
+    const state = baseState({
+      hands: { p1: [sevenA, sevenB], p2: p2Hand, p3: [] },
+      allowMultiPlay: true,
+    });
+
+    playCards(state, "p1", ["7a", "7b"]);
+    expect(state.winnerId).toBe("p1");
+    expect(state.hands.p1).toEqual([]);
+    expect(state.hands.p2).toEqual(p2Hand);
   });
 });

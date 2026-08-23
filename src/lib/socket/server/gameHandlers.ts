@@ -1,5 +1,5 @@
 import type { Server, Socket } from "socket.io";
-import { GameError, callUno, catchUnoFailure, draw, playCard } from "@/lib/game/engine";
+import { GameError, callUno, catchUnoFailure, draw, playCards } from "@/lib/game/engine";
 import { CardColor } from "@/lib/game/types";
 import { RoomManagerError, getGame, getRoom, resetToLobby } from "@/lib/rooms/roomManager";
 import { emitGameState, emitRoomState } from "./broadcast";
@@ -23,7 +23,12 @@ export function registerGameHandlers(io: Server, socket: Socket) {
   socket.on(
     "game:playCard",
     (
-      payload: { cardId: string; chosenColor?: CardColor; targetPlayerId?: string },
+      payload: {
+        cardId?: string;
+        cardIds?: string[];
+        chosenColor?: CardColor;
+        targetPlayerId?: string;
+      },
       ack?: Ack
     ) => {
       try {
@@ -31,7 +36,8 @@ export function registerGameHandlers(io: Server, socket: Socket) {
         const game = getGame(roomCode);
         if (!game) throw new GameError("game not started");
 
-        playCard(game, playerId, payload.cardId, payload.chosenColor, payload.targetPlayerId);
+        const cardIds = payload.cardIds ?? (payload.cardId ? [payload.cardId] : []);
+        playCards(game, playerId, cardIds, payload.chosenColor, payload.targetPlayerId);
         ack?.({ ok: true, data: undefined });
         emitGameState(io, roomCode);
 

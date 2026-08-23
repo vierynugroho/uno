@@ -18,6 +18,8 @@ export function buildGameStateView(state: GameState, forPlayerId: string): GameS
     pendingDraw: state.pendingDraw,
     drawStackActive: state.drawStackActive,
     mustDrawUntilColor: state.mustDrawUntilColor,
+    mustPlayIfAble: state.mustPlayIfAble,
+    allowMultiPlay: state.allowMultiPlay,
     discardTop: state.discardPile.length > 0 ? getTopCard(state) : null,
     discardCount: state.discardPile.length,
     deckCount: state.deck.length,
@@ -57,5 +59,31 @@ export function isPlayableInView(card: Card, view: GameStateView): boolean {
   ) {
     return true;
   }
+  return false;
+}
+
+/** Mirrors `canPlayGroup` from rules.ts for the client-facing view. */
+export function canPlayGroupInView(cards: Card[], view: GameStateView): boolean {
+  if (cards.length === 0) return false;
+  if (cards.length === 1) return isPlayableInView(cards[0], view);
+
+  const [first, ...rest] = cards;
+
+  if (first.type === "NUMBER") {
+    const sameValue = rest.every((c) => c.type === "NUMBER" && c.value === first.value);
+    if (!sameValue) return false;
+    return cards.some((c) => isPlayableInView(c, view));
+  }
+
+  if (isDrawType(first.type)) {
+    const amount = drawAmountFor(first.type);
+    const wild = first.color === null;
+    const sameGroup = rest.every(
+      (c) => isDrawType(c.type) && drawAmountFor(c.type) === amount && (c.color === null) === wild
+    );
+    if (!sameGroup) return false;
+    return cards.some((c) => isPlayableInView(c, view));
+  }
+
   return false;
 }

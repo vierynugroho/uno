@@ -16,6 +16,10 @@ const FILES = {
 
 export type SoundKey = keyof typeof FILES;
 
+const BACKSOUND_SRC = "/sounds/backsound.mp3";
+const BACKSOUND_VOLUME = 0.12;
+const SFX_VOLUME = 0.6;
+
 const cache = new Map<SoundKey, HTMLAudioElement>();
 
 function getAudio(key: SoundKey): HTMLAudioElement | null {
@@ -23,7 +27,7 @@ function getAudio(key: SoundKey): HTMLAudioElement | null {
   let audio = cache.get(key);
   if (!audio) {
     audio = new Audio(FILES[key]);
-    audio.volume = 0.6;
+    audio.volume = SFX_VOLUME;
     cache.set(key, audio);
   }
   return audio;
@@ -40,6 +44,21 @@ export function playSound(key: SoundKey) {
   } catch {
     // ignore
   }
+}
+
+let backgroundMusic: HTMLAudioElement | null = null;
+
+/** Starts the looping background music at low volume. Safe to call more than once. */
+export function startBackgroundMusic() {
+  if (typeof window === "undefined") return;
+  if (!backgroundMusic) {
+    backgroundMusic = new Audio(BACKSOUND_SRC);
+    backgroundMusic.loop = true;
+    backgroundMusic.volume = BACKSOUND_VOLUME;
+  }
+  void backgroundMusic.play().catch(() => {
+    // autoplay blocked until a user gesture — harmless, it just won't be audible yet
+  });
 }
 
 /** Maps a game log line to the sound effect(s) it should trigger. */

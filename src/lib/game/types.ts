@@ -60,6 +60,9 @@ export type RoomStatus = "lobby" | "playing" | "finished";
 export interface RoomSettings {
   /** reserved for future team mode */
   teamMode: boolean;
+  /** "Aturan Tongkrongan": relaxes must-play, allows dumping multiple
+   * same-value/same-draw-amount cards from hand in a single turn. */
+  casualRules: boolean;
 }
 
 export interface RoomState {
@@ -92,6 +95,10 @@ export interface GameState {
   drawStackActive: boolean;
   /** set by Wild Color Roulette: the next player must play this color or draw until they get it */
   mustDrawUntilColor: CardColor | null;
+  /** false under "Aturan Tongkrongan": a player may draw voluntarily even with a legal play in hand */
+  mustPlayIfAble: boolean;
+  /** true under "Aturan Tongkrongan": lets a player dump several same-value/same-draw-amount cards at once */
+  allowMultiPlay: boolean;
   unoCalled: Record<string, boolean>;
   log: LogEntry[];
   winnerId: string | null;
@@ -109,6 +116,8 @@ export interface GameStateView {
   pendingDraw: number;
   drawStackActive: boolean;
   mustDrawUntilColor: CardColor | null;
+  mustPlayIfAble: boolean;
+  allowMultiPlay: boolean;
   discardTop: Card | null;
   discardCount: number;
   deckCount: number;

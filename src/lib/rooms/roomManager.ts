@@ -33,7 +33,7 @@ export function createRoom(host: Omit<Player, "isHost" | "connected" | "team">):
     hostId: player.id,
     players: [player],
     status: "lobby",
-    settings: { teamMode: false },
+    settings: { teamMode: false, casualRules: false },
     createdAt: Date.now(),
   };
   rooms.set(code, { room, game: null, disconnectTimers: new Map() });
@@ -182,7 +182,9 @@ export function startGame(code: string, requesterId: string): { room: RoomState;
   }
   if (room.status !== "lobby") throw new RoomManagerError("game already started");
 
-  const game = createGame(room.players.map((p) => p.id));
+  const game = createGame(room.players.map((p) => p.id), {
+    casualRules: room.settings.casualRules,
+  });
   room.status = "playing";
   internal.game = game;
   return { room, game };

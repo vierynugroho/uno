@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { GameStateView, RoomState } from "@/lib/game/types";
 import { getOrCreatePlayerId, getSocket } from "@/lib/socket/client/socketClient";
-import { playSound, soundsForLogMessage } from "@/lib/sound/soundManager";
+import { playSound, soundsForLogMessage, startBackgroundMusic } from "@/lib/sound/soundManager";
 
 interface GameStoreState {
   room: RoomState | null;
@@ -57,6 +57,19 @@ export function ensureSocketWired() {
   if (wired) return;
   wired = true;
   playSound("welcome");
+  startBackgroundMusic();
+
+  if (typeof document !== "undefined") {
+    // Autoplay is often blocked until the user interacts with the page —
+    // retry once on the first tap/click/keypress so it isn't silent forever.
+    const retryBackgroundMusic = () => {
+      startBackgroundMusic();
+      document.removeEventListener("pointerdown", retryBackgroundMusic);
+      document.removeEventListener("keydown", retryBackgroundMusic);
+    };
+    document.addEventListener("pointerdown", retryBackgroundMusic, { once: true });
+    document.addEventListener("keydown", retryBackgroundMusic, { once: true });
+  }
 
   const socket = getSocket();
 

@@ -57,8 +57,41 @@ export function getPlayableCards(hand: Card[], state: GameState): Card[] {
   return hand.filter((c) => isPlayable(c, state));
 }
 
-/** No Mercy: a player may only draw if they hold no legal play. */
+/** No Mercy: a player may only draw if they hold no legal play (relaxed under "Aturan Tongkrongan"). */
 export function canDraw(hand: Card[], state: GameState): boolean {
-  if (!RULES.mustPlayIfAble) return true;
+  if (!state.mustPlayIfAble) return true;
   return getPlayableCards(hand, state).length === 0;
+}
+
+/**
+ * "Aturan Tongkrongan": whether `cards` can be thrown together in one turn.
+ * A group is legal when every card shares the same NUMBER value, or every
+ * card is a draw-type card with the same draw amount AND the same
+ * wild/colored-ness (a colored +4 never groups with a wild +4-equivalent
+ * even though the amount matches) — and at least one card in the group is
+ * individually legal on top of the current discard pile.
+ */
+export function canPlayGroup(cards: Card[], state: GameState): boolean {
+  if (cards.length === 0) return false;
+  if (cards.length === 1) return isPlayable(cards[0], state);
+
+  const [first, ...rest] = cards;
+
+  if (first.type === "NUMBER") {
+    const sameValue = rest.every((c) => c.type === "NUMBER" && c.value === first.value);
+    if (!sameValue) return false;
+    return cards.some((c) => isPlayable(c, state));
+  }
+
+  if (isDrawType(first.type)) {
+    const amount = drawAmountFor(first.type);
+    const wild = first.color === null;
+    const sameGroup = rest.every(
+      (c) => isDrawType(c.type) && drawAmountFor(c.type) === amount && (c.color === null) === wild
+    );
+    if (!sameGroup) return false;
+    return cards.some((c) => isPlayable(c, state));
+  }
+
+  return false;
 }

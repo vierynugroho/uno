@@ -1,5 +1,5 @@
 import { buildDeck, HAND_SIZE_LOSS_LIMIT, RULES, shuffle, STARTING_HAND_SIZE } from "./constants";
-import { canDraw, drawAmountFor, getPlayableCards, isPlayable, topOfDiscard } from "./rules";
+import { canDraw, canPlayGroup, drawAmountFor, getPlayableCards, topOfDiscard } from "./rules";
 import { Card, CardColor, GameState } from "./types";
 
 export class GameError extends Error {}
@@ -37,7 +37,10 @@ function advance(state: GameState, steps = 1) {
   state.currentPlayerIndex = nextIndex(state, state.currentPlayerIndex, steps);
 }
 
-export function createGame(playerIds: string[]): GameState {
+export function createGame(
+  playerIds: string[],
+  options: { casualRules?: boolean } = {}
+): GameState {
   if (playerIds.length < 2) throw new GameError("need at least 2 players");
 
   let deck = shuffle(buildDeck());
@@ -69,6 +72,8 @@ export function createGame(playerIds: string[]): GameState {
     pendingDraw: 0,
     drawStackActive: false,
     mustDrawUntilColor: null,
+    mustPlayIfAble: options.casualRules ? false : RULES.mustPlayIfAble,
+    allowMultiPlay: !!options.casualRules,
     unoCalled: Object.fromEntries(playerIds.map((id) => [id, false])),
     log: [],
     winnerId: null,
@@ -91,42 +96,83 @@ export function playCard(
   chosenColor?: CardColor,
   targetPlayerId?: string
 ): GameState {
+  return playCards(state, playerId, [cardId], chosenColor, targetPlayerId);
+}
+
+/**
+ * Plays one or more cards from `playerId`'s hand in a single turn. A single
+ * card follows the normal per-type rules. More than one card is only legal
+ * under "Aturan Tongkrongan" (state.allowMultiPlay) and only when they form
+ * a legal group per `canPlayGroup` — same NUMBER value, or same draw amount
+ * and same wild/colored-ness.
+ */
+export function playCards(
+  state: GameState,
+  playerId: string,
+  cardIds: string[],
+  chosenColor?: CardColor,
+  targetPlayerId?: string
+): GameState {
   if (state.winnerId) throw new GameError("game already finished");
   if (currentPlayerId(state) !== playerId) throw new GameError("not your turn");
+  if (cardIds.length === 0) throw new GameError("no cards selected");
+  if (cardIds.length > 1 && !state.allowMultiPlay) {
+    throw new GameError("playing multiple cards at once is not allowed");
+  }
+  if (new Set(cardIds).size !== cardIds.length) {
+    throw new GameError("duplicate card in selection");
+  }
 
   const hand = state.hands[playerId];
-  const card = hand.find((c) => c.id === cardId);
-  if (!card) throw new GameError("card not in hand");
-  if (!isPlayable(card, state)) throw new GameError("card is not playable");
+  const selected: Card[] = [];
+  for (const id of cardIds) {
+    const card = hand.find((c) => c.id === id);
+    if (!card) throw new GameError("card not in hand");
+    selected.push(card);
+  }
 
-  const isWild = card.color === null;
+  if (!canPlayGroup(selected, state)) throw new GameError("cards are not playable together");
+
+  const isWild = selected[0].color === null;
   if (isWild && !chosenColor) throw new GameError("must choose a color for a wild card");
 
-  // Playing your very last card always wins outright — a 7 or 0's special
-  // effect (swap/rotate hands) never gets a chance to take that win away.
-  const isLastCard = hand.length === 1;
+  // Throwing your entire remaining hand always wins outright — a 7 or 0's
+  // special effect (swap/rotate hands) never gets a chance to take that win
+  // away.
+  const isLastPlay = hand.length === selected.length;
 
-  const isSevenSwap =
-    RULES.sevenZeroRule && card.type === "NUMBER" && card.value === 7 && !isLastCard;
+  const anchor = selected[selected.length - 1];
+  const isSevenSwap = RULES.sevenZeroRule && anchor.type === "NUMBER" && anchor.value === 7 && !isLastPlay;
   if (isSevenSwap) {
     if (!targetPlayerId || targetPlayerId === playerId || !state.hands[targetPlayerId]) {
       throw new GameError("must choose an opponent to swap hands with");
     }
   }
 
-  hand.splice(hand.indexOf(card), 1);
-  state.discardPile.push(card);
-  state.currentColor = isWild ? chosenColor! : card.color!;
+  for (const card of selected) {
+    hand.splice(hand.indexOf(card), 1);
+    state.discardPile.push(card);
+  }
+  state.currentColor = isWild ? chosenColor! : anchor.color!;
   state.unoCalled[playerId] = hand.length === 1 ? state.unoCalled[playerId] : false;
 
-  log(state, `${playerId} played ${card.type}${card.color ? ` (${card.color})` : ""}`);
+  log(
+    state,
+    selected.length === 1
+      ? `${playerId} played ${anchor.type}${anchor.color ? ` (${anchor.color})` : ""}`
+      : `${playerId} played ${anchor.type} x${selected.length}${anchor.color ? ` (${anchor.color})` : ""}`
+  );
 
-  if (isLastCard) {
+  if (isLastPlay) {
     declareWinner(state, playerId);
     return state;
   }
 
-  applyEffect(state, playerId, card, targetPlayerId);
+  if (selected.length === 1) {
+    applyEffect(state, playerId, selected[0], targetPlayerId);
+  } else {
+    applyGroupEffect(state, playerId, selected, targetPlayerId);
+  }
 
   if (state.hands[playerId].length === 0) {
     declareWinner(state, playerId);
@@ -237,8 +283,11 @@ function applyEffect(state: GameState, playerId: string, card: Card, targetPlaye
       const matching = hand.filter((c) => c.color === card.color);
       for (const c of matching) {
         hand.splice(hand.indexOf(c), 1);
-        state.discardPile.push(c);
       }
+      // Dump the rest of the color underneath, but keep the DISCARD_ALL
+      // card itself on top of the pile.
+      state.discardPile.pop();
+      state.discardPile.push(...matching, card);
       if (matching.length > 0) {
         log(state, `${playerId} discarded ${matching.length} more ${card.color} card(s)`);
       }
@@ -257,6 +306,46 @@ function applyEffect(state: GameState, playerId: string, card: Card, targetPlaye
 
     default:
       advance(state);
+  }
+}
+
+/**
+ * Effect for a legal multi-card throw (Aturan Tongkrongan) — only ever
+ * called for a same-value NUMBER group or a same-amount/same-wildness draw
+ * group (see `canPlayGroup`), so no other card type can reach here.
+ */
+function applyGroupEffect(
+  state: GameState,
+  playerId: string,
+  cards: Card[],
+  targetPlayerId?: string
+) {
+  const anchor = cards[cards.length - 1];
+
+  if (anchor.type === "NUMBER") {
+    if (RULES.sevenZeroRule && anchor.value === 7) {
+      const tmp = state.hands[playerId];
+      state.hands[playerId] = state.hands[targetPlayerId!];
+      state.hands[targetPlayerId!] = tmp;
+      log(state, `${playerId} swapped hands with ${targetPlayerId}`);
+    } else if (RULES.sevenZeroRule && anchor.value === 0) {
+      rotateHands(state);
+      log(state, "everyone passed their hand along");
+    }
+    advance(state);
+    return;
+  }
+
+  // Same-amount draw-card group: amounts add up, and a reverse in the group
+  // flips direction once (not once per card).
+  const totalAmount = cards.reduce((sum, c) => sum + drawAmountFor(c.type), 0);
+  state.pendingDraw += totalAmount;
+  state.drawStackActive = true;
+  const hasReverse = cards.some((c) => c.type === "WILD_REVERSE_DRAW_FOUR");
+  if (hasReverse) {
+    flipDirectionAndAdvance(state);
+  } else {
+    advance(state);
   }
 }
 
