@@ -7,6 +7,9 @@ function randomChoice<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }
 
+/** Bots "forget" to call UNO sometimes too — otherwise they're never catchable. */
+const BOT_CALLS_UNO_CHANCE = 0.6;
+
 /**
  * Makes one move for a bot on its turn: plays a random legal card (picking a
  * color/target when required), or draws if it has nothing legal to play.
@@ -32,7 +35,7 @@ export function performBotTurn(game: GameState, botId: string): void {
   playCard(game, botId, chosen.id, chosenColor, targetPlayerId);
 
   const remaining = game.hands[botId]?.length ?? 0;
-  if (!game.winnerId && remaining > 0 && remaining <= 2) {
+  if (!game.winnerId && remaining > 0 && remaining <= 2 && Math.random() < BOT_CALLS_UNO_CHANCE) {
     callUno(game, botId);
   }
 }

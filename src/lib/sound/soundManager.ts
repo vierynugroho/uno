@@ -48,6 +48,15 @@ export function playSound(key: SoundKey) {
 }
 
 let backgroundMusic: HTMLAudioElement | null = null;
+// Tracked separately from the Audio element so a delayed autoplay-unlock
+// (the "retry on first tap" below) can't stomp back to the louder default —
+// whichever volume was last requested is what gets (re-)applied every time.
+let desiredInGame = false;
+
+function applyBackgroundVolume() {
+  if (!backgroundMusic) return;
+  backgroundMusic.volume = desiredInGame ? BACKSOUND_VOLUME_IN_GAME : BACKSOUND_VOLUME_DEFAULT;
+}
 
 /** Starts the looping background music at low volume. Safe to call more than once. */
 export function startBackgroundMusic() {
@@ -55,8 +64,8 @@ export function startBackgroundMusic() {
   if (!backgroundMusic) {
     backgroundMusic = new Audio(BACKSOUND_SRC);
     backgroundMusic.loop = true;
-    backgroundMusic.volume = BACKSOUND_VOLUME_DEFAULT;
   }
+  applyBackgroundVolume();
   void backgroundMusic.play().catch(() => {
     // autoplay blocked until a user gesture — harmless, it just won't be audible yet
   });
@@ -64,8 +73,8 @@ export function startBackgroundMusic() {
 
 /** Quieter while actually playing a match, so it doesn't compete with SFX cues. */
 export function setBackgroundMusicInGame(inGame: boolean) {
-  if (!backgroundMusic) return;
-  backgroundMusic.volume = inGame ? BACKSOUND_VOLUME_IN_GAME : BACKSOUND_VOLUME_DEFAULT;
+  desiredInGame = inGame;
+  applyBackgroundVolume();
 }
 
 /** Maps a game log line to the sound effect(s) it should trigger. */

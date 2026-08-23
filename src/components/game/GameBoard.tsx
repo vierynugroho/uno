@@ -69,14 +69,14 @@ export function GameBoard({
   return (
     <div className="relative flex min-h-dvh flex-col">
       <NotificationToast />
-      <div className="flex flex-wrap items-center justify-center gap-1.5 px-4 pt-4">
+      <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-2 px-4 pt-4">
         {seatedPlayers.map((p, i) => {
           const isSelf = p.id === selfId;
           const cardCount = isSelf ? view.hand.length : view.opponentCounts[p.id] ?? 0;
           return (
-            <div key={p.id} className="flex items-center gap-1.5">
+            <div key={p.id} className="flex items-center gap-1">
               {i > 0 && (
-                <span aria-hidden className="text-white/30">
+                <span aria-hidden className="text-xs text-white/30">
                   {view.direction === 1 ? "→" : "←"}
                 </span>
               )}

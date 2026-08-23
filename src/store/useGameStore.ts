@@ -54,12 +54,12 @@ function notificationForLogMessage(message: string): Omit<GameNotification, "id"
   if (swapMatch) {
     return {
       icon: "🔄",
-      text: `${nameFor(swapMatch[1])} menukar kartu dengan ${nameFor(swapMatch[2])}!`,
+      text: `${nameFor(swapMatch[1])} ↔ ${nameFor(swapMatch[2])}: tukar kartu!`,
     };
   }
 
   if (message.startsWith("everyone passed their hand along")) {
-    return { icon: "🔁", text: "Semua kartu diputar ke pemain berikutnya!" };
+    return { icon: "🔁", text: "Kartu semua pemain digeser!" };
   }
 
   const hitMatch = message.match(/^(.+) drew (\d+) card\(s\) from the draw stack$/);
@@ -99,9 +99,10 @@ function playSoundsForNewLogEntries(log: GameStateView["log"]) {
     if (notification) {
       const id = ++notificationSeq;
       useGameStore.setState({ notification: { id, ...notification } });
-      // A "hit" gets a slightly longer beat so it reads as a real pause
-      // before the game visibly moves on, not just a flash.
-      const duration = notification.hitPlayerId ? 2200 : 3000;
+      // Swap/roll get a beat long enough to outlast a bot's own move delay
+      // (up to ~2.4s) so it doesn't get cut off mid-read; "hit" is a touch
+      // shorter since it's paired with its own shake animation.
+      const duration = notification.hitPlayerId ? 2400 : 4200;
       setTimeout(() => useGameStore.getState().clearNotification(id), duration);
     }
   }

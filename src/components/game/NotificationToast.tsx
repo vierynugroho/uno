@@ -9,13 +9,13 @@ export function NotificationToast() {
   return (
     <div
       key={notification.id}
-      className="animate-modal-pop pointer-events-none fixed left-1/2 top-20 z-50 -translate-x-1/2"
+      className="animate-modal-pop pointer-events-none fixed left-1/2 top-20 z-50 max-w-[90vw] -translate-x-1/2"
     >
-      <div className="flex items-center gap-2 rounded-full bg-neutral-900/95 px-4 py-2 shadow-xl ring-1 ring-white/20">
-        <span className="text-xl" aria-hidden>
+      <div className="flex items-center gap-2.5 rounded-full bg-neutral-900/95 px-5 py-2.5 shadow-xl ring-1 ring-white/20">
+        <span className="flex-none text-2xl" aria-hidden>
           {notification.icon}
         </span>
-        <span className="text-sm font-semibold text-white">{notification.text}</span>
+        <span className="text-sm font-bold text-white">{notification.text}</span>
       </div>
     </div>
   );

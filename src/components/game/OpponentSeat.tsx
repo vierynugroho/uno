@@ -1,7 +1,6 @@
 "use client";
 
 import { Player } from "@/lib/game/types";
-import { CardBack } from "./Card";
 
 export function OpponentSeat({
   player,
@@ -29,47 +28,64 @@ export function OpponentSeat({
   // (a stale call from before a swap/rotate is cleared server-side, so this
   // always reflects the hand the player is actually holding right now).
   const vulnerable = cardCount === 1 && !hasCalledUno;
+  const catchable = vulnerable && !!onCatchUno;
+  const label = isSelf ? "Kamu" : player.name;
 
   return (
     <div
-      className={`flex flex-col items-center gap-1 rounded-xl p-2 transition ${
-        isSelf ? "bg-sky-400/10 ring-1 ring-sky-400/40" : ""
-      } ${isTurn ? "animate-turn-glow bg-amber-400/20 ring-2 ring-amber-400" : ""} ${
-        vulnerable ? "animate-catch-glow ring-2 ring-red-500" : ""
-      } ${hit ? "animate-hit-shake bg-red-600/20" : ""} ${!player.connected ? "opacity-40" : ""}`}
+      role={catchable ? "button" : undefined}
+      tabIndex={catchable ? 0 : undefined}
+      onClick={catchable ? onCatchUno : undefined}
+      onKeyDown={
+        catchable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") onCatchUno?.();
+            }
+          : undefined
+      }
+      title={`${label} • ${cardCount} kartu`}
+      className={`flex flex-none flex-col items-center gap-0.5 rounded-lg px-1 py-0.5 transition ${
+        catchable ? "cursor-pointer" : ""
+      } ${!player.connected ? "opacity-40" : ""}`}
     >
-      <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-xl">
-        {player.avatar}
-        {isTurn && (
-          <span className="absolute -top-2 -right-2 text-xs" aria-hidden>
+      <div
+        className={`relative flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-base ${
+          isSelf ? "ring-1 ring-sky-400/60" : ""
+        } ${isTurn ? "animate-turn-glow ring-2 ring-amber-400" : ""} ${
+          vulnerable ? "animate-catch-glow ring-2 ring-red-500" : ""
+        } ${hit ? "animate-hit-shake" : ""}`}
+      >
+        <span aria-hidden>{player.avatar}</span>
+
+        {isTurn ? (
+          <span className="absolute -top-1.5 -right-1.5 text-[10px]" aria-hidden>
             ⏳
           </span>
+        ) : (
+          !!turnsAway && (
+            <span
+              className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-neutral-800 text-[8px] font-bold text-white ring-1 ring-white/20"
+              aria-hidden
+            >
+              {turnsAway}
+            </span>
+          )
         )}
-        {!isTurn && !!turnsAway && (
-          <span
-            className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-white/20 text-[9px] font-bold text-white"
-            title={`${turnsAway} giliran lagi`}
-          >
-            {turnsAway}
-          </span>
-        )}
-      </div>
-      <span className="max-w-[6rem] truncate text-xs font-medium text-white/90">
-        {isSelf ? "Kamu" : player.name}
-      </span>
-      <div className="flex items-center gap-1">
-        <CardBack size="sm" />
-        <span className="text-sm font-bold text-white">{cardCount}</span>
-      </div>
-      {vulnerable && onCatchUno && (
-        <button
-          type="button"
-          onClick={onCatchUno}
-          className="mt-1 flex animate-pulse items-center gap-1 rounded-full bg-red-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-md shadow-red-600/40 hover:animate-none hover:bg-red-500"
+
+        <span
+          className="absolute -bottom-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-900 px-0.5 text-[9px] font-bold text-white ring-1 ring-white/30"
+          aria-hidden
         >
-          🎯 Tangkap UNO!
-        </button>
-      )}
+          {cardCount}
+        </span>
+      </div>
+
+      <span className="max-w-11 truncate text-[9px] font-medium text-white/80">{label}</span>
+
+      <span className="sr-only">
+        {label}, {cardCount} kartu{isTurn ? ", sedang jalan" : ""}
+        {catchable ? ", bisa ditangkap karena belum panggil UNO" : ""}
+      </span>
     </div>
   );
 }
