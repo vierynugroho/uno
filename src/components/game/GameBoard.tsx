@@ -48,9 +48,13 @@ export function GameBoard({
     turnsAway[view.order[idx]] = step;
   }
 
+  // Fixed seating: ordered by seat position in view.order, which never
+  // changes as turns progress — only the direction arrows/turn badges do.
+  // Sorting by turnsAway instead would make every avatar jump around the
+  // row each time the turn changes, which is what we want to avoid.
   const opponents = room.players
     .filter((p) => p.id !== selfId)
-    .sort((a, b) => (turnsAway[a.id] ?? 0) - (turnsAway[b.id] ?? 0));
+    .sort((a, b) => view.order.indexOf(a.id) - view.order.indexOf(b.id));
 
   const hitPlayerId = useGameStore((s) => s.notification?.hitPlayerId);
 

@@ -17,26 +17,38 @@ function isGroupable(card: Card): boolean {
   return card.type === "NUMBER" || SAME_TYPE_GROUPABLE.includes(card.type) || isDrawType(card.type);
 }
 
-/** Whether some other card in hand could join `card` in a group throw. */
-function hasGroupPartner(card: Card, hand: Card[]): boolean {
-  if (card.type === "NUMBER") {
-    return hand.some((c) => c.id !== card.id && c.type === "NUMBER" && c.value === card.value);
-  }
-  if (SAME_TYPE_GROUPABLE.includes(card.type)) {
-    return hand.some((c) => c.id !== card.id && c.type === card.type);
-  }
-  if (isDrawType(card.type)) {
-    const amount = drawAmountFor(card.type);
-    const wild = card.color === null;
-    return hand.some(
-      (c) =>
-        c.id !== card.id &&
-        isDrawType(c.type) &&
-        drawAmountFor(c.type) === amount &&
-        (c.color === null) === wild
+/** Whether `a` and `b` could ever be thrown together (same NUMBER value, same
+ * Skip/Reverse/Skip-Everyone type, or same draw amount + wild/colored-ness) —
+ * mirrors the grouping half of canPlayGroup, without the discard-pile check. */
+function sameCategory(a: Card, b: Card): boolean {
+  if (a.type === "NUMBER") return b.type === "NUMBER" && b.value === a.value;
+  if (SAME_TYPE_GROUPABLE.includes(a.type)) return b.type === a.type;
+  if (isDrawType(a.type)) {
+    return (
+      isDrawType(b.type) &&
+      drawAmountFor(b.type) === drawAmountFor(a.type) &&
+      (b.color === null) === (a.color === null)
     );
   }
   return false;
+}
+
+/** Whether some other card in hand could join `card` in a group throw. */
+function hasGroupPartner(card: Card, hand: Card[]): boolean {
+  return hand.some((c) => c.id !== card.id && sameCategory(card, c));
+}
+
+/**
+ * Whether `card` should even be tappable right now. A card that isn't
+ * individually legal on its own (e.g. a +4 in a color nothing currently
+ * matches) can still be selectable under Aturan Tongkrongan, as long as
+ * some other card in hand shares its category AND is individually legal —
+ * together they'd form a valid group even though this one alone wouldn't be.
+ */
+function isSelectableForPlay(card: Card, hand: Card[], view: GameStateView): boolean {
+  if (isPlayableInView(card, view)) return true;
+  if (!view.allowMultiPlay || !isGroupable(card)) return false;
+  return hand.some((c) => c.id !== card.id && sameCategory(card, c) && isPlayableInView(c, view));
 }
 
 export function Hand({
@@ -81,16 +93,17 @@ export function Hand({
   }
 
   function handleClick(card: Card) {
-    if (!isMyTurn || !isPlayableInView(card, view)) return;
+    if (!isMyTurn || !isSelectableForPlay(card, hand, view)) return;
 
     const inSelectionMode = selectedCards.length > 0;
     const canGroup = view.allowMultiPlay && isGroupable(card);
+    const soloLegal = isPlayableInView(card, view);
 
-    // Play instantly (like a normal single-card play) unless we're already
-    // mid-selection or this card actually has something to group with —
-    // otherwise every tap would require an extra "Mainkan" confirm even when
-    // there's nothing to gain from selecting.
-    if (!canGroup || (!inSelectionMode && !hasGroupPartner(card, hand))) {
+    // Play instantly (like a normal single-card play) only when it's legal
+    // on its own AND there's nothing to gain from selecting — a card that's
+    // only legal as part of a group must always go through selection, since
+    // playing it alone would be rejected by the server.
+    if (soloLegal && (!canGroup || (!inSelectionMode && !hasGroupPartner(card, hand)))) {
       playGroup([card]);
       return;
     }
@@ -118,7 +131,7 @@ export function Hand({
   const canOfferGroup =
     view.allowMultiPlay &&
     isMyTurn &&
-    hand.some((c) => isPlayableInView(c, view) && hasGroupPartner(c, hand));
+    hand.some((c) => isSelectableForPlay(c, hand, view) && hasGroupPartner(c, hand));
 
   return (
     <>
@@ -129,7 +142,7 @@ export function Hand({
       )}
       <div className="flex w-full flex-wrap items-end justify-center gap-2 px-2 py-4">
         {hand.map((card, i) => {
-          const playable = isMyTurn && isPlayableInView(card, view);
+          const playable = isMyTurn && isSelectableForPlay(card, hand, view);
           const isSelected = selected.includes(card.id);
           return (
             <div
