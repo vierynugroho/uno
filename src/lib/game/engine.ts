@@ -111,8 +111,8 @@ export function playCard(
  * Plays one or more cards from `playerId`'s hand in a single turn. A single
  * card follows the normal per-type rules. More than one card is only legal
  * under "Aturan Tongkrongan" (state.allowMultiPlay) and only when they form
- * a legal group per `canPlayGroup` — same NUMBER value, or same draw amount
- * and same wild/colored-ness.
+ * a legal group per `canPlayGroup` — same NUMBER value, all REVERSE, or
+ * same draw amount and same wild/colored-ness.
  */
 export function playCards(
   state: GameState,
@@ -319,11 +319,6 @@ function applyEffect(state: GameState, playerId: string, card: Card, targetPlaye
 }
 
 /**
- * Effect for a legal multi-card throw (Aturan Tongkrongan) — only ever
- * called for a same-value NUMBER group or a same-amount/same-wildness draw
- * group (see `canPlayGroup`), so no other card type can reach here.
- */
-/**
  * Applies a direction flip `flipCount` times (net), then advances. Two
  * flips cancel out — thrown together, a pair of Reverses (or Reverse-Draw-
  * Fours) should land on the opponent exactly as if neither were reverses at
@@ -337,6 +332,12 @@ function applyNetDirectionFlip(state: GameState, flipCount: number) {
   }
 }
 
+/**
+ * Effect for a legal multi-card throw (Aturan Tongkrongan) — only ever
+ * called for a same-value NUMBER group, an all-REVERSE group, or a
+ * same-amount/same-wildness draw-type group (see `canPlayGroup`), so no
+ * other card type can reach here.
+ */
 function applyGroupEffect(
   state: GameState,
   playerId: string,

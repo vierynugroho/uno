@@ -65,11 +65,13 @@ export function canDraw(hand: Card[], state: GameState): boolean {
 
 /**
  * "Aturan Tongkrongan": whether `cards` can be thrown together in one turn.
- * A group is legal when every card shares the same NUMBER value, or every
- * card is a draw-type card with the same draw amount AND the same
- * wild/colored-ness (a colored +4 never groups with a wild +4-equivalent
- * even though the amount matches) — and at least one card in the group is
- * individually legal on top of the current discard pile.
+ * A group is legal when every card shares the same NUMBER value, is all
+ * REVERSE, or is every draw-type card with the exact same draw amount AND
+ * the same wild/colored-ness — stacking is staged: a +2 only groups with
+ * another +2, a colored +4 only with another colored +4 (never a wild +4-
+ * equivalent even though the amount matches), +6 only with +6, +10 only
+ * with +10. At least one card in the group must be individually legal on
+ * top of the current discard pile.
  */
 export function canPlayGroup(cards: Card[], state: GameState): boolean {
   if (cards.length === 0) return false;

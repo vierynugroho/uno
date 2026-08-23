@@ -489,6 +489,18 @@ describe("Aturan Tongkrongan (casual rules)", () => {
     expect(state.hands.p1).toEqual([wildSix, filler]);
   });
 
+  it("rejects grouping colored +2 with +4 — stacking is staged by exact amount", () => {
+    const drawTwo = card({ id: "d2", color: "red", type: "DRAW_TWO" });
+    const drawFour = card({ id: "d4", color: "blue", type: "DRAW_FOUR" });
+    const filler = card({ id: "filler", color: "red", value: 1 });
+    const state = baseState({
+      hands: { p1: [drawTwo, drawFour, filler], p2: [], p3: [] },
+      allowMultiPlay: true,
+    });
+
+    expect(() => playCards(state, "p1", ["d2", "d4"])).toThrow(GameError);
+  });
+
   it("wins immediately when the whole hand is thrown as a group, without swap/rotate", () => {
     const sevenA = card({ id: "7a", color: "red", type: "NUMBER", value: 7 });
     const sevenB = card({ id: "7b", color: "blue", type: "NUMBER", value: 7 });
