@@ -71,7 +71,9 @@ export default function HomePage() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center gap-6 px-4 py-10 text-white">
-      <div className="text-center">
+      <div className="flex flex-col items-center text-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.jpg" alt="UNO No Mercy" className="mb-2 h-24 w-24 rounded-2xl object-cover shadow-lg" />
         <h1 className="text-4xl font-black tracking-tight text-amber-400">
           UNO <span className="text-white">No Mercy</span>
         </h1>

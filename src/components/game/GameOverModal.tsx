@@ -1,6 +1,5 @@
 "use client";
 
-import { HAND_SIZE_LOSS_LIMIT } from "@/lib/game/constants";
 import { Player } from "@/lib/game/types";
 
 export function GameOverModal({
@@ -8,6 +7,7 @@ export function GameOverModal({
   loser,
   placements,
   players,
+  handSizeLossLimit,
   isHost,
   onPlayAgain,
 }: {
@@ -15,6 +15,7 @@ export function GameOverModal({
   loser: Player | undefined;
   placements: string[];
   players: Player[];
+  handSizeLossLimit: number;
   isHost: boolean;
   onPlayAgain: () => void;
 }) {
@@ -22,21 +23,21 @@ export function GameOverModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-sm rounded-xl bg-neutral-900 p-6 text-center shadow-xl">
+      <div className="animate-modal-pop w-full max-w-sm rounded-xl bg-neutral-900 p-6 text-center shadow-xl">
         <p className="text-3xl">{loser ? "🃏" : "🏆"}</p>
         <h2 className="mt-2 text-xl font-bold text-white">
           {winner ? `${winner.name} menang!` : "Permainan selesai"}
         </h2>
         {loser && (
           <p className="mt-1 text-sm text-red-400">
-            {loser.name} kalah karena kartunya menumpuk sampai{" "}
-            {HAND_SIZE_LOSS_LIMIT}!
+            {loser.name} kalah karena kartunya menumpuk sampai {handSizeLossLimit}!
           </p>
         )}
         <ol className="mt-4 space-y-1 text-left text-sm text-white/80">
           {placements.map((id, i) => (
             <li key={id}>
               {i + 1}. {nameFor(id)}
+              {i === 0 && " 👑"}
             </li>
           ))}
         </ol>

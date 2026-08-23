@@ -21,7 +21,7 @@ export function OpponentSeat({
   return (
     <div
       className={`flex flex-col items-center gap-1 rounded-xl p-2 transition ${
-        isTurn ? "bg-amber-400/20 ring-2 ring-amber-400" : ""
+        isTurn ? "animate-turn-glow bg-amber-400/20 ring-2 ring-amber-400" : ""
       } ${!player.connected ? "opacity-40" : ""}`}
     >
       <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-xl">

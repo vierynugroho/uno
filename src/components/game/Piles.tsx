@@ -19,7 +19,10 @@ export function DiscardPile({
 }) {
   return (
     <div className="flex flex-col items-center gap-1">
-      <div className={`rounded-lg ring-4 ${COLOR_RING[currentColor]}`}>
+      <div
+        key={topCard?.id ?? "empty"}
+        className={`animate-card-pop rounded-lg ring-4 ${COLOR_RING[currentColor]}`}
+      >
         {topCard ? (
           <PlayingCard card={topCard} size="lg" resolvedColor={currentColor} />
         ) : (

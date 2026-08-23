@@ -21,7 +21,11 @@ export function TurnIndicator({
   currentColor: CardColor;
 }) {
   return (
-    <div className="flex items-center justify-center gap-3 py-2 text-sm text-white">
+    <div
+      className={`flex items-center justify-center gap-3 rounded-full py-2 text-sm text-white transition-colors ${
+        isMyTurn ? "animate-turn-glow bg-amber-400/10" : ""
+      }`}
+    >
       <span className={`h-4 w-4 rounded-full ${COLOR_DOT[currentColor]}`} />
       <span className="font-semibold">
         {isMyTurn ? "GILIRANMU!" : `Giliran ${currentName}`}

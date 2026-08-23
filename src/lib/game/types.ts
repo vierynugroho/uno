@@ -99,6 +99,8 @@ export interface GameState {
   mustPlayIfAble: boolean;
   /** true under "Aturan Tongkrongan": lets a player dump several same-value/same-draw-amount cards at once */
   allowMultiPlay: boolean;
+  /** 40 in strict No Mercy, 50 under "Aturan Tongkrongan" — see HAND_SIZE_LOSS_LIMIT_* */
+  handSizeLossLimit: number;
   unoCalled: Record<string, boolean>;
   log: LogEntry[];
   winnerId: string | null;
@@ -118,6 +120,7 @@ export interface GameStateView {
   mustDrawUntilColor: CardColor | null;
   mustPlayIfAble: boolean;
   allowMultiPlay: boolean;
+  handSizeLossLimit: number;
   discardTop: Card | null;
   discardCount: number;
   deckCount: number;

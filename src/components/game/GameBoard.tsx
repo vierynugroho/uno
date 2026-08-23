@@ -1,12 +1,13 @@
 "use client";
 
+import { useEffect } from "react";
 import { CardColor, GameStateView, RoomState } from "@/lib/game/types";
 import { isPlayableInView } from "@/lib/game/view";
+import { setBackgroundMusicInGame } from "@/lib/sound/soundManager";
 import { OpponentSeat } from "./OpponentSeat";
 import { DiscardPile, DrawPile } from "./Piles";
 import { Hand } from "./Hand";
 import { TurnIndicator } from "./TurnIndicator";
-import { GameLog } from "./GameLog";
 import { UnoButton } from "./UnoButton";
 import { GameOverModal } from "./GameOverModal";
 
@@ -36,10 +37,13 @@ export function GameBoard({
   const opponents = room.players.filter((p) => p.id !== selfId);
   const hasPlayable = view.hand.some((c) => isPlayableInView(c, view));
 
+  useEffect(() => {
+    setBackgroundMusicInGame(true);
+    return () => setBackgroundMusicInGame(false);
+  }, []);
+
   return (
     <div className="relative flex min-h-dvh flex-col">
-      <GameLog log={view.log} />
-
       <div className="flex flex-wrap items-start justify-center gap-3 px-4 pt-4">
         {opponents.map((p) => (
           <OpponentSeat
@@ -75,6 +79,9 @@ export function GameBoard({
         />
       </div>
 
+      <p className="text-center text-xs text-white/50">
+        Kartu kamu: <span className="font-semibold text-white/80">{view.hand.length}</span>
+      </p>
       <Hand
         hand={view.hand}
         view={view}
@@ -95,6 +102,7 @@ export function GameBoard({
           loser={room.players.find((p) => p.id === view.loserId)}
           placements={view.placements}
           players={room.players}
+          handSizeLossLimit={view.handSizeLossLimit}
           isHost={room.hostId === selfId}
           onPlayAgain={onPlayAgain}
         />

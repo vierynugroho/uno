@@ -1,4 +1,11 @@
-import { buildDeck, HAND_SIZE_LOSS_LIMIT, RULES, shuffle, STARTING_HAND_SIZE } from "./constants";
+import {
+  buildDeck,
+  HAND_SIZE_LOSS_LIMIT_CASUAL,
+  HAND_SIZE_LOSS_LIMIT_STRICT,
+  RULES,
+  shuffle,
+  STARTING_HAND_SIZE,
+} from "./constants";
 import { canDraw, canPlayGroup, drawAmountFor, getPlayableCards, topOfDiscard } from "./rules";
 import { Card, CardColor, GameState } from "./types";
 
@@ -74,6 +81,7 @@ export function createGame(
     mustDrawUntilColor: null,
     mustPlayIfAble: options.casualRules ? false : RULES.mustPlayIfAble,
     allowMultiPlay: !!options.casualRules,
+    handSizeLossLimit: options.casualRules ? HAND_SIZE_LOSS_LIMIT_CASUAL : HAND_SIZE_LOSS_LIMIT_STRICT,
     unoCalled: Object.fromEntries(playerIds.map((id) => [id, false])),
     log: [],
     winnerId: null,
@@ -195,14 +203,15 @@ function declareWinner(state: GameState, playerId: string) {
 }
 
 /**
- * No Mercy house rule: a hand that balloons to HAND_SIZE_LOSS_LIMIT cards is
- * an automatic loss for that player, ending the round outright — the other
- * player(s) are ranked ahead of them by remaining hand size.
+ * No Mercy house rule: a hand that balloons to state.handSizeLossLimit cards
+ * (40 normally, 50 under "Aturan Tongkrongan") is an automatic loss for that
+ * player, ending the round outright — the other player(s) are ranked ahead
+ * of them by remaining hand size.
  */
 function checkHandSizeLoss(state: GameState) {
   if (state.winnerId) return;
 
-  const loserId = state.order.find((id) => state.hands[id].length >= HAND_SIZE_LOSS_LIMIT);
+  const loserId = state.order.find((id) => state.hands[id].length >= state.handSizeLossLimit);
   if (!loserId) return;
 
   const rest = state.order
@@ -314,6 +323,20 @@ function applyEffect(state: GameState, playerId: string, card: Card, targetPlaye
  * called for a same-value NUMBER group or a same-amount/same-wildness draw
  * group (see `canPlayGroup`), so no other card type can reach here.
  */
+/**
+ * Applies a direction flip `flipCount` times (net), then advances. Two
+ * flips cancel out — thrown together, a pair of Reverses (or Reverse-Draw-
+ * Fours) should land on the opponent exactly as if neither were reverses at
+ * all, not bounce back to the same player twice.
+ */
+function applyNetDirectionFlip(state: GameState, flipCount: number) {
+  if (flipCount % 2 === 1) {
+    flipDirectionAndAdvance(state);
+  } else {
+    advance(state);
+  }
+}
+
 function applyGroupEffect(
   state: GameState,
   playerId: string,
@@ -322,6 +345,11 @@ function applyGroupEffect(
 ) {
   const anchor = cards[cards.length - 1];
 
+  if (anchor.type === "REVERSE") {
+    applyNetDirectionFlip(state, cards.length);
+    return;
+  }
+
   if (anchor.type === "NUMBER") {
     if (RULES.sevenZeroRule && anchor.value === 7) {
       const tmp = state.hands[playerId];
@@ -329,24 +357,20 @@ function applyGroupEffect(
       state.hands[targetPlayerId!] = tmp;
       log(state, `${playerId} swapped hands with ${targetPlayerId}`);
     } else if (RULES.sevenZeroRule && anchor.value === 0) {
-      rotateHands(state);
-      log(state, "everyone passed their hand along");
+      for (let i = 0; i < cards.length; i++) rotateHands(state);
+      log(state, `everyone passed their hand along ${cards.length}x`);
     }
     advance(state);
     return;
   }
 
-  // Same-amount draw-card group: amounts add up, and a reverse in the group
-  // flips direction once (not once per card).
+  // Same-amount draw-card group: amounts add up, and any Reverse-Draw-Fours
+  // in the group flip direction that many times (net — see above).
   const totalAmount = cards.reduce((sum, c) => sum + drawAmountFor(c.type), 0);
   state.pendingDraw += totalAmount;
   state.drawStackActive = true;
-  const hasReverse = cards.some((c) => c.type === "WILD_REVERSE_DRAW_FOUR");
-  if (hasReverse) {
-    flipDirectionAndAdvance(state);
-  } else {
-    advance(state);
-  }
+  const reverseCount = cards.filter((c) => c.type === "WILD_REVERSE_DRAW_FOUR").length;
+  applyNetDirectionFlip(state, reverseCount);
 }
 
 export function draw(state: GameState, playerId: string): GameState {

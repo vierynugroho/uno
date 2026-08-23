@@ -5,13 +5,35 @@ import { PlayingCard } from "./Card";
 import { RULES } from "@/lib/game/constants";
 import { Card, CardColor, GameStateView, Player } from "@/lib/game/types";
 import { canPlayGroupInView, isPlayableInView } from "@/lib/game/view";
-import { isDrawType } from "@/lib/game/rules";
+import { drawAmountFor, isDrawType } from "@/lib/game/rules";
 import { ColorPickerModal } from "./ColorPickerModal";
 import { TargetPlayerModal } from "./TargetPlayerModal";
 
-/** Only NUMBER and draw-type cards can ever be thrown together as a group. */
+/** Only NUMBER, REVERSE, and draw-type cards can ever be thrown together as a group. */
 function isGroupable(card: Card): boolean {
-  return card.type === "NUMBER" || isDrawType(card.type);
+  return card.type === "NUMBER" || card.type === "REVERSE" || isDrawType(card.type);
+}
+
+/** Whether some other card in hand could join `card` in a group throw. */
+function hasGroupPartner(card: Card, hand: Card[]): boolean {
+  if (card.type === "NUMBER") {
+    return hand.some((c) => c.id !== card.id && c.type === "NUMBER" && c.value === card.value);
+  }
+  if (card.type === "REVERSE") {
+    return hand.some((c) => c.id !== card.id && c.type === "REVERSE");
+  }
+  if (isDrawType(card.type)) {
+    const amount = drawAmountFor(card.type);
+    const wild = card.color === null;
+    return hand.some(
+      (c) =>
+        c.id !== card.id &&
+        isDrawType(c.type) &&
+        drawAmountFor(c.type) === amount &&
+        (c.color === null) === wild
+    );
+  }
+  return false;
 }
 
 export function Hand({
@@ -58,7 +80,14 @@ export function Hand({
   function handleClick(card: Card) {
     if (!isMyTurn || !isPlayableInView(card, view)) return;
 
-    if (!view.allowMultiPlay || !isGroupable(card)) {
+    const inSelectionMode = selectedCards.length > 0;
+    const canGroup = view.allowMultiPlay && isGroupable(card);
+
+    // Play instantly (like a normal single-card play) unless we're already
+    // mid-selection or this card actually has something to group with —
+    // otherwise every tap would require an extra "Mainkan" confirm even when
+    // there's nothing to gain from selecting.
+    if (!canGroup || (!inSelectionMode && !hasGroupPartner(card, hand))) {
       playGroup([card]);
       return;
     }
@@ -83,20 +112,35 @@ export function Hand({
     pending[pending.length - 1].type === "NUMBER" &&
     pending[pending.length - 1].value === 7;
 
+  const canOfferGroup =
+    view.allowMultiPlay &&
+    isMyTurn &&
+    hand.some((c) => isPlayableInView(c, view) && hasGroupPartner(c, hand));
+
   return (
     <>
+      {canOfferGroup && selectedCards.length === 0 && (
+        <p className="pb-1 text-center text-[11px] text-amber-300/80">
+          Ketuk beberapa kartu angka/+ yang sama untuk ditumpuk sekaligus
+        </p>
+      )}
       <div className="flex w-full flex-wrap items-end justify-center gap-2 px-2 py-4">
-        {hand.map((card) => {
+        {hand.map((card, i) => {
           const playable = isMyTurn && isPlayableInView(card, view);
           const isSelected = selected.includes(card.id);
           return (
-            <PlayingCard
+            <div
               key={card.id}
-              card={card}
-              selected={isSelected}
-              disabled={!playable}
-              onClick={() => handleClick(card)}
-            />
+              className="animate-deal-in"
+              style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}
+            >
+              <PlayingCard
+                card={card}
+                selected={isSelected}
+                disabled={!playable}
+                onClick={() => handleClick(card)}
+              />
+            </div>
           );
         })}
         {hand.length === 0 && (

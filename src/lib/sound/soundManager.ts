@@ -17,7 +17,8 @@ const FILES = {
 export type SoundKey = keyof typeof FILES;
 
 const BACKSOUND_SRC = "/sounds/backsound.mp3";
-const BACKSOUND_VOLUME = 0.12;
+const BACKSOUND_VOLUME_DEFAULT = 0.12;
+const BACKSOUND_VOLUME_IN_GAME = 0.05;
 const SFX_VOLUME = 0.6;
 
 const cache = new Map<SoundKey, HTMLAudioElement>();
@@ -54,11 +55,17 @@ export function startBackgroundMusic() {
   if (!backgroundMusic) {
     backgroundMusic = new Audio(BACKSOUND_SRC);
     backgroundMusic.loop = true;
-    backgroundMusic.volume = BACKSOUND_VOLUME;
+    backgroundMusic.volume = BACKSOUND_VOLUME_DEFAULT;
   }
   void backgroundMusic.play().catch(() => {
     // autoplay blocked until a user gesture — harmless, it just won't be audible yet
   });
+}
+
+/** Quieter while actually playing a match, so it doesn't compete with SFX cues. */
+export function setBackgroundMusicInGame(inGame: boolean) {
+  if (!backgroundMusic) return;
+  backgroundMusic.volume = inGame ? BACKSOUND_VOLUME_IN_GAME : BACKSOUND_VOLUME_DEFAULT;
 }
 
 /** Maps a game log line to the sound effect(s) it should trigger. */

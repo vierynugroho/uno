@@ -8,7 +8,7 @@ import {
   playCard,
   playCards,
 } from "@/lib/game/engine";
-import { buildDeck, HAND_SIZE_LOSS_LIMIT } from "@/lib/game/constants";
+import { buildDeck, HAND_SIZE_LOSS_LIMIT_STRICT } from "@/lib/game/constants";
 import { Card, GameState } from "@/lib/game/types";
 
 function baseState(overrides: Partial<GameState> = {}): GameState {
@@ -27,6 +27,7 @@ function baseState(overrides: Partial<GameState> = {}): GameState {
     mustDrawUntilColor: null,
     mustPlayIfAble: true,
     allowMultiPlay: false,
+    handSizeLossLimit: HAND_SIZE_LOSS_LIMIT_STRICT,
     unoCalled: Object.fromEntries(order.map((id) => [id, false])),
     log: [],
     winnerId: null,
@@ -49,6 +50,18 @@ describe("createGame", () => {
     expect(state.discardPile).toHaveLength(1);
     expect(state.discardPile[0].type).toBe("NUMBER");
     expect(state.deck.length).toBe(buildDeck().length - 4 * 7 - 1);
+  });
+
+  it("uses a 40-card loss limit and mandatory play by default, 50 and optional play under casual rules", () => {
+    const strict = createGame(["p1", "p2"]);
+    expect(strict.handSizeLossLimit).toBe(HAND_SIZE_LOSS_LIMIT_STRICT);
+    expect(strict.mustPlayIfAble).toBe(true);
+    expect(strict.allowMultiPlay).toBe(false);
+
+    const casual = createGame(["p1", "p2"], { casualRules: true });
+    expect(casual.handSizeLossLimit).toBe(50);
+    expect(casual.mustPlayIfAble).toBe(false);
+    expect(casual.allowMultiPlay).toBe(true);
   });
 });
 
@@ -326,7 +339,7 @@ describe("hand-size auto-loss rule", () => {
   it("ends the round when a player's hand reaches the loss limit via a forced draw", () => {
     const drawTen = card({ id: "d10", color: null, type: "WILD_DRAW_TEN" });
     const filler = card({ id: "filler", color: "red", value: 1 });
-    const bigHand = Array.from({ length: HAND_SIZE_LOSS_LIMIT - 1 }, (_, i) =>
+    const bigHand = Array.from({ length: HAND_SIZE_LOSS_LIMIT_STRICT - 1 }, (_, i) =>
       card({ id: "p2-" + i })
     );
     const state = baseState({
@@ -337,7 +350,7 @@ describe("hand-size auto-loss rule", () => {
     playCard(state, "p1", "d10", "blue");
     draw(state, "p2");
 
-    expect(state.hands.p2.length).toBeGreaterThanOrEqual(HAND_SIZE_LOSS_LIMIT);
+    expect(state.hands.p2.length).toBeGreaterThanOrEqual(HAND_SIZE_LOSS_LIMIT_STRICT);
     expect(state.loserId).toBe("p2");
     expect(state.winnerId).not.toBeNull();
     expect(state.winnerId).not.toBe("p2");
@@ -489,5 +502,60 @@ describe("Aturan Tongkrongan (casual rules)", () => {
     expect(state.winnerId).toBe("p1");
     expect(state.hands.p1).toEqual([]);
     expect(state.hands.p2).toEqual(p2Hand);
+  });
+
+  it("throwing 2 reverses in a 2-player game cancels out and passes to the opponent", () => {
+    const reverseA = card({ id: "rvA", color: "red", type: "REVERSE" });
+    const reverseB = card({ id: "rvB", color: "blue", type: "REVERSE" });
+    const filler = card({ id: "filler", color: "red", value: 1 });
+    const state = baseState({
+      order: ["p1", "p2"],
+      hands: { p1: [reverseA, reverseB, filler], p2: [] },
+      allowMultiPlay: true,
+      direction: 1,
+    });
+
+    playCards(state, "p1", ["rvA", "rvB"]);
+    // two flips cancel out — direction unchanged, and it's NOT treated as a
+    // 2-player skip, so play actually passes to p2 instead of staying put.
+    expect(state.direction).toBe(1);
+    expect(state.currentPlayerIndex).toBe(state.order.indexOf("p2"));
+  });
+
+  it("throwing 3 reverses in a 2-player game still nets one flip (acts as skip)", () => {
+    const reverseA = card({ id: "rvA", color: "red", type: "REVERSE" });
+    const reverseB = card({ id: "rvB", color: "blue", type: "REVERSE" });
+    const reverseC = card({ id: "rvC", color: "green", type: "REVERSE" });
+    const filler = card({ id: "filler", color: "red", value: 1 });
+    const state = baseState({
+      order: ["p1", "p2"],
+      hands: { p1: [reverseA, reverseB, reverseC, filler], p2: [] },
+      allowMultiPlay: true,
+      direction: 1,
+    });
+
+    playCards(state, "p1", ["rvA", "rvB", "rvC"]);
+    expect(state.direction).toBe(-1);
+    expect(state.currentPlayerIndex).toBe(state.order.indexOf("p1"));
+  });
+
+  it("rotates hands once per 0 thrown in a group", () => {
+    const zeroA = card({ id: "z0a", color: "red", type: "NUMBER", value: 0 });
+    const zeroB = card({ id: "z0b", color: "blue", type: "NUMBER", value: 0 });
+    const filler = card({ id: "filler", color: "red", value: 1 });
+    const p2Hand = [card({ id: "p2a" })];
+    const p3Hand = [card({ id: "p3a" }), card({ id: "p3b" })];
+    const state = baseState({
+      hands: { p1: [zeroA, zeroB, filler], p2: p2Hand, p3: p3Hand },
+      allowMultiPlay: true,
+    });
+
+    playCards(state, "p1", ["z0a", "z0b"]);
+    // rotating twice in a 3-player game returns each hand to two seats over
+    // (p1 -> p3's old spot's neighbor, etc.) — concretely: p1 ends up with
+    // what was p2's hand, since two single-step rotations = a 2-step shift.
+    expect(state.hands.p1).toEqual(p2Hand);
+    expect(state.hands.p2).toEqual(p3Hand);
+    expect(state.hands.p3).toEqual([filler]);
   });
 });

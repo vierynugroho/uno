@@ -18,7 +18,7 @@ export function ColorPickerModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-xs rounded-xl bg-neutral-900 p-5 shadow-xl">
+      <div className="animate-modal-pop w-full max-w-xs rounded-xl bg-neutral-900 p-5 shadow-xl">
         <p className="mb-4 text-center text-sm font-semibold text-white">
           Pilih warna
         </p>

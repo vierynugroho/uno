@@ -6,7 +6,9 @@ export const MIN_PLAYERS = 2;
 export const MAX_PLAYERS = 10;
 export const STARTING_HAND_SIZE = 7;
 /** A player holding this many cards or more automatically loses the round. */
-export const HAND_SIZE_LOSS_LIMIT = 50;
+export const HAND_SIZE_LOSS_LIMIT_STRICT = 40;
+/** Higher limit under "Aturan Tongkrongan", since hands can balloon faster with group throws. */
+export const HAND_SIZE_LOSS_LIMIT_CASUAL = 50;
 
 /** How many of each colored action card type appear per color. */
 export const COLOR_ACTION_COUNTS: Partial<Record<CardType, number>> = {

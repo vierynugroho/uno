@@ -20,6 +20,7 @@ export function buildGameStateView(state: GameState, forPlayerId: string): GameS
     mustDrawUntilColor: state.mustDrawUntilColor,
     mustPlayIfAble: state.mustPlayIfAble,
     allowMultiPlay: state.allowMultiPlay,
+    handSizeLossLimit: state.handSizeLossLimit,
     discardTop: state.discardPile.length > 0 ? getTopCard(state) : null,
     discardCount: state.discardPile.length,
     deckCount: state.deck.length,
@@ -72,6 +73,12 @@ export function canPlayGroupInView(cards: Card[], view: GameStateView): boolean 
   if (first.type === "NUMBER") {
     const sameValue = rest.every((c) => c.type === "NUMBER" && c.value === first.value);
     if (!sameValue) return false;
+    return cards.some((c) => isPlayableInView(c, view));
+  }
+
+  if (first.type === "REVERSE") {
+    const allReverse = rest.every((c) => c.type === "REVERSE");
+    if (!allReverse) return false;
     return cards.some((c) => isPlayableInView(c, view));
   }
 

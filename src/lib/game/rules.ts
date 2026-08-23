@@ -83,6 +83,12 @@ export function canPlayGroup(cards: Card[], state: GameState): boolean {
     return cards.some((c) => isPlayable(c, state));
   }
 
+  if (first.type === "REVERSE") {
+    const allReverse = rest.every((c) => c.type === "REVERSE");
+    if (!allReverse) return false;
+    return cards.some((c) => isPlayable(c, state));
+  }
+
   if (isDrawType(first.type)) {
     const amount = drawAmountFor(first.type);
     const wild = first.color === null;
