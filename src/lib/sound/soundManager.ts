@@ -76,6 +76,52 @@ export function playSound(key: SoundKey) {
   }
 }
 
+const ALL_SOUND_KEYS = Object.keys(FILES) as SoundKey[];
+let unlocked = false;
+
+/**
+ * Card-action SFX are triggered from async socket events, never from inside
+ * a click handler — some browsers (notably iOS Safari) only allow a given
+ * <audio> element to play programmatically later if it was first played
+ * directly inside a real user gesture. So on the first tap/click/keypress
+ * anywhere on the page, "warm up" every SFX element (and the background
+ * track) with a real, silent play()+pause() so later scripted playback
+ * actually produces sound instead of being silently swallowed forever.
+ */
+function unlockAllAudio() {
+  if (unlocked || typeof window === "undefined") return;
+  unlocked = true;
+  for (const key of ALL_SOUND_KEYS) {
+    const audio = getAudio(key);
+    if (!audio) continue;
+    const originalVolume = audio.volume;
+    audio.volume = 0;
+    void audio
+      .play()
+      .then(() => {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.volume = originalVolume;
+      })
+      .catch(() => {
+        audio.volume = originalVolume;
+      });
+  }
+  startBackgroundMusic();
+}
+
+/** Registers the one-time first-interaction listener that unlocks all audio. */
+export function registerAudioUnlockListeners() {
+  if (typeof document === "undefined") return;
+  const handler = () => {
+    unlockAllAudio();
+    document.removeEventListener("pointerdown", handler);
+    document.removeEventListener("keydown", handler);
+  };
+  document.addEventListener("pointerdown", handler, { once: true });
+  document.addEventListener("keydown", handler, { once: true });
+}
+
 let backgroundMusic: HTMLAudioElement | null = null;
 // Tracked separately from the Audio element so a delayed autoplay-unlock
 // (the "retry on first tap" below) can't stomp back to the louder default —
