@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { AvatarPicker, AVATAR_OPTIONS } from "@/components/shared/AvatarPicker";
 import { InviteCode } from "@/components/lobby/InviteCode";
 import { PlayerList } from "@/components/lobby/PlayerList";
@@ -12,8 +12,10 @@ import {
   emitWithAck,
   getOrCreatePlayerId,
   getStoredIdentity,
+  getStoredRoomPassword,
   storeIdentity,
   storeLastRoomCode,
+  storeRoomPassword,
 } from "@/lib/socket/client/socketClient";
 import { ensureSocketWired, useGameStore } from "@/store/useGameStore";
 
@@ -22,6 +24,7 @@ type Phase = "checking" | "needsJoin" | "notFound" | "ready";
 export default function RoomPage() {
   const params = useParams<{ code: string }>();
   const code = String(params.code).toUpperCase();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const room = useGameStore((s) => s.room);
   const game = useGameStore((s) => s.game);
@@ -31,6 +34,8 @@ export default function RoomPage() {
   const [phase, setPhase] = useState<Phase>("checking");
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState(AVATAR_OPTIONS[0]);
+  const [password, setPassword] = useState("");
+  const [needsPassword, setNeedsPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [selfId, setSelfId] = useState("");
@@ -47,6 +52,9 @@ export default function RoomPage() {
       setName(stored.name);
       setAvatar(stored.avatar);
     }
+    // A shared link can carry ?pw=... to save the invitee from retyping it.
+    const prefilledPassword = searchParams.get("pw") || getStoredRoomPassword(code) || "";
+    if (prefilledPassword) setPassword(prefilledPassword);
 
     emitWithAck("room:rejoin", { code, playerId }).then((res) => {
       if (res.ok) {
@@ -58,6 +66,7 @@ export default function RoomPage() {
         setPhase("needsJoin");
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- read once on mount/code-change; refiring on every searchParams identity change would re-run room:rejoin needlessly
   }, [code]);
 
   useEffect(() => {
@@ -81,11 +90,20 @@ export default function RoomPage() {
       name,
       avatar,
       playerId: getOrCreatePlayerId(),
+      password: password.trim() || undefined,
     });
     setBusy(false);
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) {
+      if (res.error === "incorrect password") {
+        const hadPassword = needsPassword;
+        setNeedsPassword(true);
+        return setError(hadPassword ? "Password salah, coba lagi." : "Room ini private, masukkan password.");
+      }
+      return setError(res.error);
+    }
     storeIdentity({ name, avatar });
     storeLastRoomCode(code);
+    if (password.trim()) storeRoomPassword(code, password.trim());
     setPhase("ready");
   }
 
@@ -149,6 +167,23 @@ export default function RoomPage() {
           <AvatarPicker value={avatar} onChange={setAvatar} />
         </div>
 
+        {(needsPassword || password) && (
+          <div className="w-full space-y-2">
+            <label className="text-xs uppercase tracking-wide text-white/50">
+              🔒 Password Room
+            </label>
+            <input
+              type="text"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              maxLength={20}
+              placeholder="Password room"
+              autoFocus={needsPassword}
+              className="w-full rounded-lg bg-white/10 px-3 py-2 text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            />
+          </div>
+        )}
+
         {error && <p className="text-sm text-red-400">{error}</p>}
 
         <button
@@ -169,7 +204,7 @@ export default function RoomPage() {
     return (
       <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center gap-6 px-4 py-10 text-white">
         <BackButton onClick={goHome} />
-        <InviteCode code={code} />
+        <InviteCode code={code} isPrivate={room.isPrivate} />
         <PlayerList
           players={room.players}
           selfId={selfId}

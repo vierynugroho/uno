@@ -716,3 +716,40 @@ describe("Aturan Tongkrongan (casual rules)", () => {
     expect(state.hands.p3).toEqual([filler]);
   });
 });
+
+describe("deck exhaustion (applies under every ruleset)", () => {
+  it("ends the round when there are no cards left to draw — fewest hand wins", () => {
+    const matchless = card({ id: "x", color: "blue", value: 9 });
+    const filler = card({ id: "y", color: "green", value: 3 });
+    const state = baseState({
+      hands: {
+        p1: [matchless, filler], // neither matches the default red-5 top — must draw
+        p2: [card({ id: "a" })], // fewest cards
+        p3: [card({ id: "b" }), card({ id: "c" }), card({ id: "d" })],
+      },
+      deck: [], // and the discard pile only ever has its single top card in baseState
+    });
+
+    draw(state, "p1");
+    expect(state.winnerId).toBe("p2");
+    expect(state.placements).toEqual(["p2", "p1", "p3"]);
+  });
+
+  it("ends the round if the deck runs out while forced to draw until a color — fewest hand wins", () => {
+    const filler1 = card({ id: "f1", color: "green", value: 2 });
+    const filler2 = card({ id: "f2", color: "green", value: 4 });
+    const state = baseState({
+      hands: {
+        p1: [filler1, filler2],
+        p2: [card({ id: "a" })], // fewest cards
+        p3: [card({ id: "b" }), card({ id: "c" }), card({ id: "d" })],
+      },
+      deck: [],
+      mustDrawUntilColor: "yellow",
+    });
+
+    draw(state, "p1");
+    expect(state.winnerId).toBe("p2");
+    expect(state.placements).toEqual(["p2", "p1", "p3"]);
+  });
+});

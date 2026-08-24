@@ -70,3 +70,16 @@ export function storeLastRoomCode(code: string) {
 export function clearLastRoomCode() {
   window.localStorage.removeItem(LAST_ROOM_KEY);
 }
+
+const ROOM_PASSWORD_PREFIX = "uno:roomPassword:";
+
+/** Remembers the password for a room this client created or successfully
+ * joined, so it can re-share it (or auto-fill it on rejoin) later. */
+export function storeRoomPassword(code: string, password: string) {
+  window.localStorage.setItem(ROOM_PASSWORD_PREFIX + code.toUpperCase(), password);
+}
+
+export function getStoredRoomPassword(code: string): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(ROOM_PASSWORD_PREFIX + code.toUpperCase());
+}

@@ -237,6 +237,27 @@ function checkHandSizeLoss(state: GameState) {
   );
 }
 
+/**
+ * No Mercy house rule (applies under every ruleset): if the draw pile and
+ * the discard pile behind it are ever completely exhausted — no cards left
+ * anywhere to deal — the round ends immediately rather than getting stuck.
+ * Whoever is holding the fewest cards at that moment wins.
+ */
+function declareGameOverByFewestCards(state: GameState, reason: string) {
+  if (state.winnerId) return;
+
+  const ranked = [...state.order].sort(
+    (a, b) => state.hands[a].length - state.hands[b].length
+  );
+  const winnerId = ranked[0];
+  state.winnerId = winnerId;
+  state.placements = ranked;
+  log(
+    state,
+    `${reason} — ${winnerId} wins with the fewest cards (${state.hands[winnerId].length})`
+  );
+}
+
 function rotateHands(state: GameState) {
   const newHands: Record<string, Card[]> = {};
   for (let i = 0; i < state.order.length; i++) {
@@ -423,16 +444,28 @@ export function draw(state: GameState, playerId: string): GameState {
   if (state.mustDrawUntilColor) {
     const target = state.mustDrawUntilColor;
     const drawn: Card[] = [];
+    let foundColor = false;
     for (let guard = 0; guard < 500; guard++) {
       const [drawnCard] = drawCards(state, playerId, 1);
       if (!drawnCard) break;
       drawn.push(drawnCard);
-      if (drawnCard.color === target) break;
+      if (drawnCard.color === target) {
+        foundColor = true;
+        break;
+      }
     }
     log(state, `${playerId} drew ${drawn.length} card(s) looking for ${target}`);
 
     state.mustDrawUntilColor = null;
     state.unoCalled[playerId] = false;
+
+    // Ran the whole deck + discard pile dry without ever finding the
+    // required color — nothing left to keep the round going.
+    if (!foundColor) {
+      declareGameOverByFewestCards(state, "no cards left while searching for a color");
+      return state;
+    }
+
     checkHandSizeLoss(state);
     if (!state.winnerId) advance(state);
     return state;
@@ -451,6 +484,14 @@ export function draw(state: GameState, playerId: string): GameState {
   state.pendingDraw = 0;
   state.drawStackActive = false;
   state.unoCalled[playerId] = false;
+
+  // Couldn't actually deal the full amount because the deck (and the
+  // discard pile behind it) is completely out of cards — end the round
+  // right here instead of silently under-dealing and carrying on.
+  if (drawn.length < amount) {
+    declareGameOverByFewestCards(state, "no cards left to draw");
+    return state;
+  }
 
   checkHandSizeLoss(state);
   if (!state.winnerId) advance(state);

@@ -9,6 +9,7 @@ import {
   getStoredIdentity,
   storeIdentity,
   storeLastRoomCode,
+  storeRoomPassword,
 } from "@/lib/socket/client/socketClient";
 import { ensureSocketWired } from "@/store/useGameStore";
 
@@ -17,6 +18,10 @@ export default function HomePage() {
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState(AVATAR_OPTIONS[0]);
   const [joinCode, setJoinCode] = useState("");
+  const [makePrivate, setMakePrivate] = useState(false);
+  const [password, setPassword] = useState("");
+  const [joinPassword, setJoinPassword] = useState("");
+  const [needsJoinPassword, setNeedsJoinPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -32,6 +37,12 @@ export default function HomePage() {
     }
   }, []);
 
+  async function goToRoom(code: string) {
+    storeIdentity({ name, avatar });
+    storeLastRoomCode(code);
+    router.push(`/room/${code}`);
+  }
+
   async function handleCreate() {
     if (!name.trim()) return setError("Isi nama dulu ya.");
     setBusy(true);
@@ -41,12 +52,12 @@ export default function HomePage() {
       name,
       avatar,
       playerId,
+      password: makePrivate && password.trim() ? password.trim() : undefined,
     });
     setBusy(false);
     if (!res.ok) return setError(res.error);
-    storeIdentity({ name, avatar });
-    storeLastRoomCode(res.data.code);
-    router.push(`/room/${res.data.code}`);
+    if (makePrivate && password.trim()) storeRoomPassword(res.data.code, password.trim());
+    goToRoom(res.data.code);
   }
 
   async function handleJoin() {
@@ -61,12 +72,35 @@ export default function HomePage() {
       name,
       avatar,
       playerId,
+      password: needsJoinPassword ? joinPassword.trim() : undefined,
+    });
+    setBusy(false);
+    if (!res.ok) {
+      if (res.error === "incorrect password") {
+        setNeedsJoinPassword(true);
+        return setError(
+          needsJoinPassword ? "Password salah, coba lagi." : "Room ini private, masukkan password."
+        );
+      }
+      return setError(res.error);
+    }
+    if (needsJoinPassword && joinPassword.trim()) storeRoomPassword(code, joinPassword.trim());
+    goToRoom(res.data.code);
+  }
+
+  async function handleJoinRandom() {
+    if (!name.trim()) return setError("Isi nama dulu ya.");
+    setBusy(true);
+    setError(null);
+    const playerId = getOrCreatePlayerId();
+    const res = await emitWithAck<{ code: string }>("room:joinRandom", {
+      name,
+      avatar,
+      playerId,
     });
     setBusy(false);
     if (!res.ok) return setError(res.error);
-    storeIdentity({ name, avatar });
-    storeLastRoomCode(res.data.code);
-    router.push(`/room/${res.data.code}`);
+    goToRoom(res.data.code);
   }
 
   return (
@@ -99,6 +133,26 @@ export default function HomePage() {
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       <div className="w-full space-y-3 pt-2">
+        <label className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
+          <span className="text-sm text-white">🔒 Room private (opsional)</span>
+          <input
+            type="checkbox"
+            checked={makePrivate}
+            onChange={(e) => setMakePrivate(e.target.checked)}
+            className="h-4 w-4"
+          />
+        </label>
+        {makePrivate && (
+          <input
+            type="text"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            maxLength={20}
+            placeholder="Password room"
+            className="w-full rounded-lg bg-white/10 px-3 py-2 text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-amber-400"
+          />
+        )}
+
         <button
           type="button"
           onClick={handleCreate}
@@ -108,10 +162,28 @@ export default function HomePage() {
           Buat Room Baru
         </button>
 
+        <button
+          type="button"
+          onClick={handleJoinRandom}
+          disabled={busy}
+          className="w-full rounded-lg border border-sky-400/40 bg-sky-500/10 py-2.5 text-sm font-semibold text-sky-300 transition hover:bg-sky-500/20 disabled:opacity-50"
+        >
+          🎲 Gabung Room Acak
+        </button>
+
+        <div className="flex items-center gap-2 pt-1 text-xs uppercase tracking-wide text-white/30">
+          <span className="h-px flex-1 bg-white/10" />
+          atau gabung pakai kode
+          <span className="h-px flex-1 bg-white/10" />
+        </div>
+
         <div className="flex items-center gap-2">
           <input
             value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value)}
+            onChange={(e) => {
+              setJoinCode(e.target.value);
+              setNeedsJoinPassword(false);
+            }}
             maxLength={5}
             placeholder="KODE ROOM"
             className="w-full rounded-lg bg-white/10 px-3 py-2 uppercase tracking-widest text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-amber-400"
@@ -125,6 +197,17 @@ export default function HomePage() {
             Gabung
           </button>
         </div>
+        {needsJoinPassword && (
+          <input
+            type="text"
+            value={joinPassword}
+            onChange={(e) => setJoinPassword(e.target.value)}
+            maxLength={20}
+            placeholder="Password room"
+            autoFocus
+            className="w-full rounded-lg bg-white/10 px-3 py-2 text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-amber-400"
+          />
+        )}
       </div>
     </main>
   );

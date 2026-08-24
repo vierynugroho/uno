@@ -72,6 +72,9 @@ export interface RoomState {
   status: RoomStatus;
   settings: RoomSettings;
   createdAt: number;
+  /** True when a password is required to join. The password itself is
+   * never sent to clients — only whoever set/entered it correctly knows it. */
+  isPrivate: boolean;
 }
 
 export interface LogEntry {

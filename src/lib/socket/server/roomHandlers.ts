@@ -5,6 +5,7 @@ import {
   createRoom,
   getGame,
   getRoom,
+  joinRandomRoom,
   joinRoom,
   kickPlayer,
   leaveRoom,
@@ -34,16 +35,19 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
   socket.on(
     "room:create",
     (
-      payload: { name: string; avatar: string; playerId: string },
+      payload: { name: string; avatar: string; playerId: string; password?: string },
       ack?: Ack<{ code: string }>
     ) => {
       try {
-        const room = createRoom({
-          id: payload.playerId,
-          socketId: socket.id,
-          name: payload.name.trim().slice(0, 20),
-          avatar: payload.avatar,
-        });
+        const room = createRoom(
+          {
+            id: payload.playerId,
+            socketId: socket.id,
+            name: payload.name.trim().slice(0, 20),
+            avatar: payload.avatar,
+          },
+          { password: payload.password }
+        );
         socket.data.playerId = payload.playerId;
         socket.data.roomCode = room.code;
         socket.join(roomChannel(room.code));
@@ -58,11 +62,45 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
   socket.on(
     "room:join",
     (
-      payload: { code: string; name: string; avatar: string; playerId: string },
+      payload: {
+        code: string;
+        name: string;
+        avatar: string;
+        playerId: string;
+        password?: string;
+      },
       ack?: Ack<{ code: string }>
     ) => {
       try {
-        const room = joinRoom(payload.code, {
+        const room = joinRoom(
+          payload.code,
+          {
+            id: payload.playerId,
+            socketId: socket.id,
+            name: payload.name.trim().slice(0, 20),
+            avatar: payload.avatar,
+          },
+          payload.password
+        );
+        socket.data.playerId = payload.playerId;
+        socket.data.roomCode = room.code;
+        socket.join(roomChannel(room.code));
+        ack?.({ ok: true, data: { code: room.code } });
+        emitRoomState(io, room.code);
+      } catch (err) {
+        fail(ack, err);
+      }
+    }
+  );
+
+  socket.on(
+    "room:joinRandom",
+    (
+      payload: { name: string; avatar: string; playerId: string },
+      ack?: Ack<{ code: string }>
+    ) => {
+      try {
+        const room = joinRandomRoom({
           id: payload.playerId,
           socketId: socket.id,
           name: payload.name.trim().slice(0, 20),

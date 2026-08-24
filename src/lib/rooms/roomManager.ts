@@ -10,6 +10,8 @@ export class RoomManagerError extends Error {}
 interface InternalRoom {
   room: RoomState;
   game: GameState | null;
+  /** Never exposed on RoomState — only ever checked server-side. */
+  password: string | null;
   /** playerId -> pending disconnect timeout */
   disconnectTimers: Map<string, ReturnType<typeof setTimeout>>;
 }
@@ -24,10 +26,14 @@ function generateCode(): string {
   return code;
 }
 
-export function createRoom(host: Omit<Player, "isHost" | "connected" | "team">): RoomState {
+export function createRoom(
+  host: Omit<Player, "isHost" | "connected" | "team">,
+  options: { password?: string } = {}
+): RoomState {
   const code = generateCode();
   const player: Player = { ...host, isHost: true, connected: true, team: null };
   if (!player.name.trim()) throw new RoomManagerError("name is required");
+  const password = options.password?.trim() || null;
   const room: RoomState = {
     code,
     hostId: player.id,
@@ -35,8 +41,9 @@ export function createRoom(host: Omit<Player, "isHost" | "connected" | "team">):
     status: "lobby",
     settings: { teamMode: false, casualRules: false },
     createdAt: Date.now(),
+    isPrivate: !!password,
   };
-  rooms.set(code, { room, game: null, disconnectTimers: new Map() });
+  rooms.set(code, { room, game: null, password, disconnectTimers: new Map() });
   return room;
 }
 
@@ -56,7 +63,8 @@ function requireInternal(code: string): InternalRoom {
 
 export function joinRoom(
   code: string,
-  player: Omit<Player, "isHost" | "connected" | "team">
+  player: Omit<Player, "isHost" | "connected" | "team">,
+  password?: string
 ): RoomState {
   const internal = requireInternal(code);
   const { room } = internal;
@@ -67,9 +75,38 @@ export function joinRoom(
   if (room.players.some((p) => p.id === player.id)) {
     throw new RoomManagerError("player already in room");
   }
+  if (internal.password && internal.password !== password) {
+    throw new RoomManagerError("incorrect password");
+  }
 
   room.players.push({ ...player, isHost: false, connected: true, team: null });
   return room;
+}
+
+/** Finds a public, joinable room, or null if none exist right now. */
+function findJoinableRoomCode(): string | null {
+  for (const [code, internal] of rooms) {
+    if (
+      !internal.password &&
+      internal.room.status === "lobby" &&
+      internal.room.players.length < MAX_PLAYERS
+    ) {
+      return code;
+    }
+  }
+  return null;
+}
+
+/**
+ * Joins a random open public room, or creates a fresh one if none are
+ * available right now. Never matches into a private (password-protected)
+ * room.
+ */
+export function joinRandomRoom(
+  player: Omit<Player, "isHost" | "connected" | "team">
+): RoomState {
+  const code = findJoinableRoomCode();
+  return code ? joinRoom(code, player) : createRoom(player);
 }
 
 export function reconnectPlayer(code: string, playerId: string, socketId: string): RoomState {
