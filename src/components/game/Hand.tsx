@@ -110,13 +110,18 @@ export function Hand({
 
     setSelected((prev) => {
       if (prev.includes(card.id)) return prev.filter((id) => id !== card.id);
-      const next = [...prev, card.id];
-      const nextCards = next
+      const prevCards = prev
         .map((id) => hand.find((c) => c.id === id))
         .filter((c): c is Card => !!c);
-      // If adding this card breaks the group (different value/amount), start
-      // a fresh selection with just this card instead.
-      return canPlayGroupInView(nextCards, view) ? next : [card.id];
+      // Only reset when this card doesn't even belong to the same category
+      // (different value/type/amount) as what's already selected. Whether the
+      // group as a whole is individually playable yet is irrelevant here — a
+      // legal card added later can still make an earlier, not-yet-playable
+      // pick valid, so accumulating must never silently drop it.
+      if (prevCards.length > 0 && !prevCards.every((c) => sameCategory(c, card))) {
+        return [card.id];
+      }
+      return [...prev, card.id];
     });
   }
 
