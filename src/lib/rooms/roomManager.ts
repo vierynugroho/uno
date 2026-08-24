@@ -150,14 +150,17 @@ export function leaveRoom(code: string, playerId: string): RoomState | undefined
 
   room.players = room.players.filter((p) => p.id !== playerId);
 
-  if (room.players.length === 0) {
+  // A room with no humans left (empty, or bots only) has nobody to play for —
+  // disband it rather than let bots keep playing against each other forever.
+  if (room.players.length === 0 || room.players.every((p) => p.isBot)) {
     rooms.delete(room.code);
     return undefined;
   }
 
   if (room.hostId === playerId) {
-    room.hostId = room.players[0].id;
-    room.players[0].isHost = true;
+    const nextHost = room.players.find((p) => !p.isBot) ?? room.players[0];
+    room.hostId = nextHost.id;
+    nextHost.isHost = true;
   }
 
   return room;

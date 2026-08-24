@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { FullscreenButton } from "@/components/shared/FullscreenButton";
+import { MuteButton } from "@/components/shared/MuteButton";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <FullscreenButton />
+        <MuteButton />
         {children}
       </body>
     </html>

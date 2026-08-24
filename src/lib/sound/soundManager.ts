@@ -23,6 +23,34 @@ const SFX_VOLUME = 0.7;
 
 const cache = new Map<SoundKey, HTMLAudioElement>();
 
+const MUTE_KEY = "uno:muted";
+let muted = false;
+let mutedLoaded = false;
+
+/** Reads the persisted mute preference on first use, so SSR/first-render never touch localStorage. */
+function ensureMutedLoaded() {
+  if (mutedLoaded || typeof window === "undefined") return;
+  mutedLoaded = true;
+  muted = window.localStorage.getItem(MUTE_KEY) === "1";
+}
+
+export function isMuted(): boolean {
+  ensureMutedLoaded();
+  return muted;
+}
+
+export function setMuted(value: boolean) {
+  muted = value;
+  mutedLoaded = true;
+  if (typeof window !== "undefined") window.localStorage.setItem(MUTE_KEY, value ? "1" : "0");
+  applyBackgroundVolume();
+}
+
+export function toggleMuted(): boolean {
+  setMuted(!isMuted());
+  return muted;
+}
+
 function getAudio(key: SoundKey): HTMLAudioElement | null {
   if (typeof window === "undefined") return null;
   let audio = cache.get(key);
@@ -35,6 +63,7 @@ function getAudio(key: SoundKey): HTMLAudioElement | null {
 }
 
 export function playSound(key: SoundKey) {
+  if (isMuted()) return;
   const audio = getAudio(key);
   if (!audio) return;
   try {
@@ -55,7 +84,7 @@ let desiredInGame = false;
 
 function applyBackgroundVolume() {
   if (!backgroundMusic) return;
-  backgroundMusic.volume = desiredInGame ? BACKSOUND_VOLUME_IN_GAME : BACKSOUND_VOLUME_DEFAULT;
+  backgroundMusic.volume = isMuted() ? 0 : desiredInGame ? BACKSOUND_VOLUME_IN_GAME : BACKSOUND_VOLUME_DEFAULT;
 }
 
 /** Starts the looping background music at low volume. Safe to call more than once. */
